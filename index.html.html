@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Outlook 상품 카드 편집기 (공유 보관함)</title>
+<style>
+  :root{ --navy:#163a7a; --navy-dark:#0f2c5e; --red:#c0122e; --gray-bg:#f2f4f7; --gray-line:#e2e5ea; --text-sub:#6b7280; }
+  *{ margin:0; padding:0; box-sizing:border-box; font-family:'Malgun Gothic','맑은 고딕',-apple-system,sans-serif; }
+  body{ background:var(--gray-bg); color:#1a1a1a; padding-bottom:60px; }
+  header{ background:var(--navy); color:#fff; padding:18px 28px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+  header h1{ font-size:19px; font-weight:800; }
+  header .sub{ font-size:12px; opacity:.8; margin-top:3px; }
+  .top-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .btn{ padding:9px 16px; border-radius:8px; border:1px solid var(--gray-line); background:#fff; font-weight:700; font-size:13px; cursor:pointer; }
+  .btn.primary{ background:var(--navy-dark); color:#fff; border-color:var(--navy-dark); }
+  .btn.ghost{ background:transparent; color:#fff; border-color:rgba(255,255,255,.5); }
+
+  .tabs{ max-width:1180px; margin:18px auto 0; display:flex; gap:8px; padding:0 24px; flex-wrap:wrap; }
+  .tab{ padding:9px 16px; border-radius:8px 8px 0 0; border:1px solid var(--gray-line); border-bottom:none; background:#fff; font-weight:700; font-size:13px; cursor:pointer; color:#555; }
+  .tab.active{ background:var(--navy-dark); color:#fff; }
+
+  .panel{ display:none; max-width:1180px; margin:0 auto; padding:18px 24px 60px; }
+  .panel.show{ display:block; }
+  .hint{ font-size:12.5px; color:var(--text-sub); background:#fff; border:1px solid var(--gray-line); border-radius:8px; padding:12px 16px; margin-bottom:18px; line-height:1.6; }
+
+  .grid{ display:flex; gap:16px; flex-wrap:wrap; }
+  .card-wrap{ width:250px; }
+  .p-card{ width:250px; border:1px solid var(--gray-line); border-radius:6px; overflow:hidden; background:#fff; }
+  .p-card .head{ background:var(--navy); padding:9px 12px; color:#fff; font-weight:800; font-size:13px; letter-spacing:1px; display:flex; justify-content:space-between; align-items:center; }
+  .p-card .head .b{ width:52px; height:52px; border-radius:26px; background:#f6c445; color:#1a2233; font-weight:800; font-size:16px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; line-height:1; cursor:pointer; gap:3px; }
+  .p-card .imgbox{ width:100%; height:150px; background:#e9ecf1; display:flex; align-items:center; justify-content:center; color:#9aa0a6; font-size:13px; cursor:pointer; overflow:hidden; }
+  .p-card .imgbox img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .p-card .body{ padding:11px 12px 13px; }
+  .p-card .tag2{ display:inline-block; background:#e8eef7; color:#0A4FA3; font-size:11px; font-weight:800; padding:2px 9px; border-radius:11px; outline:none; }
+  .p-card .pname{ font-size:14.5px; font-weight:800; margin:8px 0 6px; line-height:1.35; outline:none; }
+  .p-card .row2{ font-size:12px; color:#444; margin-bottom:2px; outline:none; }
+  .p-card .listp{ font-size:12px; color:#999; text-decoration:line-through; margin-top:6px; outline:none; }
+  .p-card .salep{ font-size:18px; font-weight:800; color:var(--red); outline:none; }
+  .p-card [contenteditable]:focus{ background:#fff8e0; }
+
+  .card-actions{ margin-top:8px; display:flex; flex-direction:column; gap:6px; }
+  .row-btns{ display:flex; gap:6px; }
+  .row-btns button{ flex:1; padding:8px; border-radius:6px; border:1px solid var(--gray-line); background:#fff; font-size:12px; font-weight:700; cursor:pointer; }
+  .row-btns button.danger{ color:var(--red); border-color:#f2c7cc; background:#fff6f7; }
+  .link-set{ box-shadow:0 0 0 2px var(--navy) inset; }
+
+  .add-tile{ width:250px; min-height:230px; border:2px dashed var(--gray-line); border-radius:6px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:6px; color:#9aa0a6; font-weight:700; cursor:pointer; }
+  .add-tile:hover{ border-color:var(--navy); color:var(--navy); }
+
+  /* 보관함 */
+  .arch-grid{ display:flex; gap:16px; flex-wrap:wrap; }
+  .arch-item{ width:250px; border:1px solid var(--gray-line); border-radius:8px; background:#fff; overflow:hidden; position:relative; }
+  .arch-item.selected{ box-shadow:0 0 0 2px var(--navy) inset; }
+  .arch-item .thumb{ width:100%; max-height:320px; min-height:150px; object-fit:contain; background:#e9ecf1; display:block; }
+  .arch-item .sel-check{ position:absolute; top:8px; left:8px; width:20px; height:20px; z-index:2; cursor:pointer; }
+  .arch-item .meta{ padding:10px 12px; }
+  .arch-item .meta .n{ font-weight:800; font-size:13.5px; margin-bottom:3px; }
+  .arch-item .meta .d{ font-size:11.5px; color:var(--text-sub); }
+  .arch-item .btns{ display:flex; gap:6px; padding:0 12px 12px; }
+  .arch-item .btns button{ flex:1; padding:7px; border-radius:6px; border:1px solid var(--gray-line); background:#fff; font-size:11.5px; font-weight:700; cursor:pointer; }
+
+  /* 공유 */
+  .share-box{ background:#fff; border:1px solid var(--gray-line); border-radius:10px; padding:20px; margin-bottom:16px; }
+  .share-box h3{ font-size:14.5px; color:var(--navy); margin-bottom:10px; }
+  .share-box p{ font-size:12.5px; color:var(--text-sub); margin-bottom:12px; line-height:1.6; }
+  .status-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; background:#c8ccd4; margin-right:6px; }
+  .status-dot.on{ background:#1fa855; }
+  .share-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+
+  .excel-table{ width:100%; border-collapse:collapse; margin-top:10px; font-size:12.5px; }
+  .excel-table th,.excel-table td{ border:1px solid var(--gray-line); padding:6px 8px; text-align:left; }
+  .excel-table th{ background:#f2f4f7; }
+  .excel-table tr{ cursor:pointer; }
+  .excel-table tr:hover{ background:#eef2f8; }
+
+  #toast{ position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:#1a2233; color:#fff; padding:10px 18px; border-radius:6px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .2s; z-index:999; }
+  #toast.show{ opacity:1; }
+  input[type=file]{ display:none; }
+  .field-label{ font-size:12px; font-weight:700; color:var(--navy); margin:10px 0 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Outlook 상품 카드 편집기</h1>
+    <div class="sub">카드의 이미지·텍스트를 직접 클릭해 수정 · 완료 후 이미지로 복사(링크 유지) → Outlook에 Ctrl+V</div>
+  </div>
+  <div class="top-actions">
+    <button class="btn ghost" id="btnAddCard">+ 카드 추가</button>
+    <button class="btn primary" id="btnCopyAll">이미지로 복사 (링크 유지)</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-panel="editPanel">카드 편집</div>
+  <div class="tab" data-panel="codePanel">HTML 코드</div>
+  <div class="tab" data-panel="archPanel">보관함</div>
+  <div class="tab" data-panel="sharePanel">공유 / 엑셀 연동</div>
+</div>
+
+<div class="panel show" id="editPanel">
+  <div class="hint">카드의 이미지·배지·텍스트를 클릭해 직접 수정하세요. 카드마다 <b>이미지</b>(사진 업로드) · <b>링크</b>(클릭 시 이동할 URL) · <b>배지</b>(할인율) 버튼이 있습니다. 완성되면 상단 "이미지로 복사"로 Outlook에 붙여넣거나, 보관함 탭에서 저장해 다른 사람과 공유하세요.</div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<div class="panel" id="codePanel">
+  <div class="hint">아래 코드를 복사해 Outlook 서명/본문 HTML 소스에 붙여넣을 수 있습니다.</div>
+  <textarea id="codeOut" style="width:100%;height:340px;font-family:monospace;font-size:12px;padding:12px;border:1px solid var(--gray-line);border-radius:8px;"></textarea>
+  <div style="margin-top:10px;"><button class="btn primary" id="btnGenCode">코드 생성</button> <button class="btn" id="btnCopyCode">코드 복사</button></div>
+</div>
+
+<div class="panel" id="archPanel">
+  <div class="hint">보관함에는 완성된 카드 이미지와 설정값이 함께 저장됩니다. "편집에 불러오기"로 편집 화면에 다시 불러와 수정하거나, 다른 사람이 만든 카드를 그대로 사용할 수 있습니다. 여러 사람과 함께 쓰려면 <b>공유 / 엑셀 연동</b> 탭에서 공유 파일을 연결하세요.</div>
+  <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;">
+    <button class="btn primary" id="btnSaveAllToArchive">현재 카드 전체를 보관함에 저장</button>
+    <button class="btn" id="btnRefreshArchive">새로고침</button>
+    <input id="archSearch" placeholder="상품명 또는 형번으로 검색" style="flex:1;min-width:220px;padding:9px 14px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
+  </div>
+  <div style="margin-bottom:14px;display:flex;gap:8px;align-items:center;">
+    <span id="archSelCount" style="font-size:12.5px;color:var(--text-sub);">선택 0개</span>
+    <button class="btn primary" id="btnLoadSelected">선택한 카드 편집으로 이동</button>
+    <button class="btn" id="btnClearSelection">선택 해제</button>
+  </div>
+  <div class="arch-grid" id="archGrid"></div>
+</div>
+
+<div class="panel" id="sharePanel">
+  <div class="share-box">
+    <h3>공유 저장소 연결 (같은 폴더/네트워크 드라이브)</h3>
+    <p>보관함 데이터(카드 이미지+설정값)를 폴더 안의 JSON 파일 하나로 관리합니다. 이 파일을 팀 공유 폴더에 두면, 폴더에 접근할 수 있는 모든 사람이 같은 보관함을 보고 추가할 수 있습니다. (Chrome/Edge 브라우저에서 지원됩니다.)</p>
+    <div style="margin-bottom:10px;"><span class="status-dot" id="shareDot"></span><span id="shareStatus">연결된 공유 파일 없음</span></div>
+    <div class="share-actions">
+      <button class="btn primary" id="btnCreateShare">① 공유 폴더에 새 공유 파일 만들기 (처음 한 번만)</button>
+      <button class="btn primary" id="btnOpenShare">② 기존 공유 파일 열기/연결</button>
+      <button class="btn" id="btnReconnectShare" style="display:none;">🔄 이전에 연결했던 파일로 재연결</button>
+      <button class="btn" id="btnPullShare">공유 보관함 불러오기</button>
+      <button class="btn" id="btnPushShare">내 변경사항 공유 파일에 저장</button>
+    </div>
+    <p style="font-size:12px;color:var(--text-sub);margin-top:8px;">⚠️ 이 창을 새로고침하거나 다시 열면 "연결됨" 표시가 사라집니다. 그때마다 매번 새 파일을 만들 필요는 없고, <b>"🔄 이전에 연결했던 파일로 재연결"</b> 버튼(보이면) 또는 <b>"② 기존 공유 파일 열기"</b>로 같은 파일을 다시 선택하면 됩니다.</p>
+    <p id="shareErr" style="color:var(--red);margin-top:8px;"></p>
+  </div>
+
+  <div class="share-box">
+    <h3>파일로 내보내기 / 가져오기 (모든 환경 지원)</h3>
+    <p>공유 폴더 연결이 안 되는 환경(다른 브라우저 등)에서는 JSON 파일을 메일/메신저로 주고받아 보관함을 합칠 수 있습니다.</p>
+    <div class="share-actions">
+      <button class="btn" id="btnExportJson">보관함 JSON 내보내기</button>
+      <button class="btn" id="btnImportJsonBtn">JSON 파일 가져오기</button>
+      <input type="file" id="btnImportJson" accept="application/json">
+    </div>
+  </div>
+
+  <div class="share-box">
+    <h3>엑셀에서 상품 값 가져오기</h3>
+    <p>견적서 양식의 "데이터" 시트처럼 <b>품명 · 형번 · 규격 · 수량 · 단가 · 납기 · 비고</b> 열이 있는 엑셀 파일을 불러와, 원하는 행을 클릭하면 새 카드가 자동으로 만들어집니다.</p>
+    <div class="share-actions">
+      <button class="btn" id="btnPickExcel">엑셀 파일 선택</button>
+      <input type="file" id="excelFile" accept=".xlsx,.xls,.csv">
+    </div>
+    <div id="excelTableWrap"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* ===================== 데이터 모델 ===================== */
+const LS_CARDS = 'cardEditor.cards.v1';
+const LS_ARCHIVE = 'cardEditor.archive.v1';
+
+function uid(){ return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+function defaultCard(){
+  return {
+    id: uid(),
+    badge: 15,
+    category: '액추에이터',
+    name: '상품명을 입력하세요',
+    model: '형번',
+    delivery: '납기 : 문의',
+    listPrice: 386000,
+    salePrice: 328100,
+    img: '',
+    link: ''
+  };
+}
+
+let cards = JSON.parse(localStorage.getItem(LS_CARDS) || 'null') || [
+  Object.assign(defaultCard(), { name:'리니어모터 액추에이터', model:'LEFS16A-100' }),
+  Object.assign(defaultCard(), { name:'볼나사 스테이지', model:'KR2001A-200', listPrice:386000, salePrice:328100 }),
+  Object.assign(defaultCard(), { name:'직동 가이드', model:'SSEBS15-300', listPrice:386000, salePrice:328100 }),
+];
+
+function persistCards(){ localStorage.setItem(LS_CARDS, JSON.stringify(cards)); }
+
+let archive = JSON.parse(localStorage.getItem(LS_ARCHIVE) || 'null') || [];
+function persistArchive(){ localStorage.setItem(LS_ARCHIVE, JSON.stringify(archive)); }
+
+function fmtWon(n){ return '₩' + Math.round(n).toLocaleString() + '원'; }
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2400);
+}
+
+/* ===================== 탭 전환 ===================== */
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.onclick = ()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.panel).classList.add('show');
+    if(tab.dataset.panel==='archPanel') renderArchive();
+  };
+});
+
+/* ===================== 카드 편집 화면 ===================== */
+function renderGrid(){
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  cards.forEach((c, idx)=>{
+    const wrap = document.createElement('div');
+    wrap.className = 'card-wrap';
+    wrap.innerHTML = `
+      <div class="p-card" data-id="${c.id}">
+        <div class="head">
+          MISUMI
+          <span class="b" data-act="badge"><span>${c.badge}%</span><span style="font-size:10px;font-weight:700;">할인</span></span>
+        </div>
+        <div class="imgbox" data-act="img">${c.img ? `<img src="${c.img}">` : '상품 이미지 (클릭)'}</div>
+        <div class="body">
+          <span class="tag2" contenteditable="true" data-field="category">${c.category}</span>
+          <div class="pname" contenteditable="true" data-field="name">${c.name}</div>
+          <div class="row2" contenteditable="true" data-field="model">형번 : ${c.model}</div>
+          <div class="row2" contenteditable="true" data-field="delivery">${c.delivery}</div>
+          <div class="listp" contenteditable="true" data-field="listPrice">${fmtWon(c.listPrice)}</div>
+          <div class="salep" contenteditable="true" data-field="salePrice">${fmtWon(c.salePrice)}</div>
+        </div>
+      </div>
+      <div class="card-actions">
+        <div class="row-btns">
+          <button data-act="img">이미지</button>
+          <button data-act="link" class="${c.link ? 'link-set' : ''}">링크${c.link ? ' ✓' : ''}</button>
+        </div>
+        <div class="row-btns">
+          <button data-act="left">◀</button>
+          <button data-act="right">▶</button>
+          <button data-act="toArchive">보관함 저장</button>
+        </div>
+        <div class="row-btns">
+          <button data-act="delete" class="danger">삭제</button>
+        </div>
+      </div>
+    `;
+    grid.appendChild(wrap);
+
+    const pcard = wrap.querySelector('.p-card');
+
+    // 텍스트 편집
+    pcard.querySelectorAll('[contenteditable]').forEach(el=>{
+      el.addEventListener('blur', ()=>{
+        const field = el.dataset.field;
+        let val = el.textContent.trim();
+        if(field === 'model') val = val.replace(/^형번\s*:\s*/,'');
+        if(field === 'listPrice' || field === 'salePrice'){
+          const num = Number(val.replace(/[^0-9]/g,'')) || 0;
+          c[field] = num;
+          el.textContent = fmtWon(num);
+          return;
+        }
+        c[field] = val;
+        if(field==='model') el.textContent = '형번 : ' + val;
+        persistCards();
+      });
+    });
+
+    // 배지(할인율) 클릭
+    pcard.querySelector('[data-act="badge"]').onclick = ()=>{
+      const v = prompt('할인율(%)을 입력하세요', c.badge);
+      if(v===null) return;
+      const n = Math.max(0, Math.min(100, Number(v)||0));
+      c.badge = n;
+      c.salePrice = Math.round(c.listPrice * (1 - n/100));
+      persistCards(); renderGrid();
+    };
+
+    // 이미지 업로드
+    const imgTrigger = ()=>{
+      const inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = 'image/*';
+      inp.onchange = ()=>{
+        const f = inp.files[0]; if(!f) return;
+        const reader = new FileReader();
+        reader.onload = ()=>{ c.img = reader.result; persistCards(); renderGrid(); };
+        reader.readAsDataURL(f);
+      };
+      inp.click();
+    };
+    pcard.querySelector('[data-act="img"]').onclick = imgTrigger;
+    wrap.querySelector('.row-btns [data-act="img"]').onclick = imgTrigger;
+
+    // 링크
+    wrap.querySelector('[data-act="link"]').onclick = ()=>{
+      const v = prompt('카드 클릭 시 이동할 상품 링크(URL)를 입력하세요', c.link || 'https://kr.misumi-ec.com/');
+      if(v===null) return;
+      c.link = v.trim();
+      persistCards(); renderGrid();
+    };
+
+    // 순서 이동
+    wrap.querySelector('[data-act="left"]').onclick = ()=>{
+      if(idx===0) return;
+      [cards[idx-1], cards[idx]] = [cards[idx], cards[idx-1]];
+      persistCards(); renderGrid();
+    };
+    wrap.querySelector('[data-act="right"]').onclick = ()=>{
+      if(idx===cards.length-1) return;
+      [cards[idx+1], cards[idx]] = [cards[idx], cards[idx+1]];
+      persistCards(); renderGrid();
+    };
+
+    // 삭제
+    wrap.querySelector('[data-act="delete"]').onclick = ()=>{
+      if(!confirm('이 카드를 삭제할까요?')) return;
+      cards.splice(idx,1); persistCards(); renderGrid();
+    };
+
+    // 보관함 저장(단일 카드)
+    wrap.querySelector('[data-act="toArchive"]').onclick = ()=> saveCardToArchive(c, pcard);
+  });
+
+  // + 카드 추가 타일
+  const addTile = document.createElement('div');
+  addTile.className = 'add-tile';
+  addTile.innerHTML = '<div style="font-size:26px;">+</div><div>카드 추가</div>';
+  addTile.onclick = ()=>{ cards.push(defaultCard()); persistCards(); renderGrid(); };
+  grid.appendChild(addTile);
+}
+document.getElementById('btnAddCard').onclick = ()=>{ cards.push(defaultCard()); persistCards(); renderGrid(); };
+
+/* ===================== 보관함 저장/조회 ===================== */
+async function saveCardToArchive(c, pcardEl){
+  const who = prompt('저장자 이름(선택, 다른 사람이 알아볼 수 있도록)', '');
+  const canvas = await html2canvas(pcardEl, { backgroundColor:'#ffffff', scale:2 });
+  const dataUrl = canvas.toDataURL('image/png');
+  archive.unshift({
+    id: uid(),
+    savedAt: new Date().toISOString(),
+    savedBy: who || '',
+    image: dataUrl,
+    config: JSON.parse(JSON.stringify(c))
+  });
+  persistArchive();
+  toast('보관함에 저장되었습니다');
+}
+
+document.getElementById('btnSaveAllToArchive').onclick = async ()=>{
+  const who = prompt('저장자 이름(선택)', '');
+  const cardEls = document.querySelectorAll('#grid .p-card');
+  for(let i=0;i<cardEls.length;i++){
+    const canvas = await html2canvas(cardEls[i], { backgroundColor:'#ffffff', scale:2 });
+    archive.unshift({
+      id: uid(), savedAt: new Date().toISOString(), savedBy: who || '',
+      image: canvas.toDataURL('image/png'), config: JSON.parse(JSON.stringify(cards[i]))
+    });
+  }
+  persistArchive();
+  toast(`${cardEls.length}개 카드를 보관함에 저장했습니다`);
+  renderArchive();
+};
+
+let archSelected = new Set();
+
+function renderArchive(){
+  const wrap = document.getElementById('archGrid');
+  const q = (document.getElementById('archSearch').value || '').trim().toLowerCase();
+  const visible = archive.filter(a=>{
+    if(!q) return true;
+    const name = String(a.config.name||'').toLowerCase();
+    const model = String(a.config.model||'').toLowerCase();
+    return name.includes(q) || model.includes(q);
+  });
+  if(archive.length===0){
+    wrap.innerHTML = '<div style="color:#9aa0a6;font-size:13px;">아직 보관함에 저장된 카드가 없습니다.</div>';
+    updateArchSelCount();
+    return;
+  }
+  if(visible.length===0){
+    wrap.innerHTML = '<div style="color:#9aa0a6;font-size:13px;">검색 결과가 없습니다.</div>';
+    updateArchSelCount();
+    return;
+  }
+  wrap.innerHTML = visible.map(a=>`
+    <div class="arch-item ${archSelected.has(a.id)?'selected':''}" data-id="${a.id}">
+      <input type="checkbox" class="sel-check" ${archSelected.has(a.id)?'checked':''}>
+      <img class="thumb" src="${a.image}">
+      <div class="meta">
+        <div class="n">${a.config.name}</div>
+        <div class="d">형번 ${a.config.model || '-'}</div>
+        <div class="d">${a.savedBy ? a.savedBy + ' · ' : ''}${new Date(a.savedAt).toLocaleString('ko-KR')}</div>
+      </div>
+      <div class="btns">
+        <button data-act="load">편집에 불러오기</button>
+        <button data-act="copy">이미지 복사</button>
+        <button data-act="del">삭제</button>
+      </div>
+    </div>
+  `).join('');
+  wrap.querySelectorAll('.arch-item').forEach(el=>{
+    const id = el.dataset.id;
+    const a = archive.find(x=>x.id===id);
+    el.querySelector('.sel-check').onchange = (e)=>{
+      if(e.target.checked) archSelected.add(id); else archSelected.delete(id);
+      el.classList.toggle('selected', e.target.checked);
+      updateArchSelCount();
+    };
+    el.querySelector('[data-act="load"]').onclick = ()=>{
+      const newCard = Object.assign({}, a.config, { id: uid() });
+      cards.push(newCard); persistCards();
+      document.querySelector('.tab[data-panel="editPanel"]').click();
+      renderGrid();
+      toast('편집 화면에 카드를 추가했습니다');
+    };
+    el.querySelector('[data-act="copy"]').onclick = async ()=>{
+      const blob = await (await fetch(a.image)).blob();
+      try{
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        toast('이미지가 복사되었습니다. Outlook에 Ctrl+V 하세요.');
+      }catch(e){ toast('클립보드 복사 실패 (브라우저 권한 확인)'); }
+    };
+    el.querySelector('[data-act="del"]').onclick = ()=>{
+      if(!confirm('보관함에서 삭제할까요?')) return;
+      archive = archive.filter(x=>x.id!==id); persistArchive(); archSelected.delete(id); renderArchive();
+    };
+  });
+  updateArchSelCount();
+}
+document.getElementById('btnRefreshArchive').onclick = renderArchive;
+document.getElementById('archSearch').oninput = renderArchive;
+
+function updateArchSelCount(){
+  document.getElementById('archSelCount').textContent = `선택 ${archSelected.size}개`;
+}
+document.getElementById('btnClearSelection').onclick = ()=>{
+  archSelected.clear(); renderArchive();
+};
+document.getElementById('btnLoadSelected').onclick = ()=>{
+  if(archSelected.size===0){ toast('보관함에서 카드를 먼저 선택하세요'); return; }
+  let count = 0;
+  archive.forEach(a=>{
+    if(archSelected.has(a.id)){
+      cards.push(Object.assign({}, a.config, { id: uid() }));
+      count++;
+    }
+  });
+  persistCards();
+  archSelected.clear();
+  document.querySelector('.tab[data-panel="editPanel"]').click();
+  renderGrid();
+  toast(`선택한 ${count}개 카드를 편집 화면으로 가져왔습니다`);
+};
+
+/* ===================== HTML 코드 생성 ===================== */
+function cardHtml(c){
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="230" style="border:1px solid #e2e5ea;font-family:'Malgun Gothic',sans-serif;">
+<tr><td style="background:#163a7a;padding:9px 12px;color:#fff;font-weight:bold;">MISUMI ${c.badge}% 할인</td></tr>
+<tr><td>${c.link ? `<a href="${c.link}">` : ''}<img src="${c.img || ''}" width="230" height="150" style="display:block;object-fit:cover;">${c.link ? '</a>' : ''}</td></tr>
+<tr><td style="padding:11px 12px;">
+  <div style="font-size:14.5px;font-weight:bold;margin-bottom:6px;">${c.name}</div>
+  <div style="font-size:12px;color:#444;">형번 : ${c.model}</div>
+  <div style="font-size:12px;color:#444;">${c.delivery}</div>
+  <div style="font-size:12px;color:#999;text-decoration:line-through;margin-top:6px;">${fmtWon(c.listPrice)}</div>
+  <div style="font-size:18px;font-weight:bold;color:#c0122e;">${fmtWon(c.salePrice)}</div>
+</td></tr>
+</table>`;
+}
+document.getElementById('btnGenCode').onclick = ()=>{
+  const html = `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>` +
+    cards.map(c=>`<td style="padding:0 8px;">${cardHtml(c)}</td>`).join('') + `</tr></table>`;
+  document.getElementById('codeOut').value = html;
+};
+document.getElementById('btnCopyCode').onclick = ()=>{
+  navigator.clipboard.writeText(document.getElementById('codeOut').value);
+  toast('HTML 코드가 복사되었습니다');
+};
+
+/* ===================== 이미지로 복사 (링크 유지) ===================== */
+document.getElementById('btnCopyAll').onclick = async ()=>{
+  if(!window.html2canvas){ toast('라이브러리 로딩 중입니다. 잠시 후 다시 시도하세요.'); return; }
+  const cardEls = document.querySelectorAll('#grid .p-card');
+  let rowHtml = '';
+  for(let i=0;i<cardEls.length;i++){
+    const canvas = await html2canvas(cardEls[i], { backgroundColor:'#ffffff', scale:2 });
+    const dataUrl = canvas.toDataURL('image/png');
+    const c = cards[i];
+    const img = `<img src="${dataUrl}" width="230" style="display:block;border:0;">`;
+    rowHtml += `<td style="padding:0 8px;">${c.link ? `<a href="${c.link}">${img}</a>` : img}</td>`;
+  }
+  const fullHtml = `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>${rowHtml}</tr></table>`;
+  try{
+    const blob = new Blob([fullHtml], { type:'text/html' });
+    const textBlob = new Blob([fullHtml], { type:'text/plain' });
+    await navigator.clipboard.write([new ClipboardItem({ 'text/html': blob, 'text/plain': textBlob })]);
+    toast('이미지(링크 포함)가 복사되었습니다. Outlook 본문에 Ctrl+V 하세요.');
+  }catch(e){
+    toast('클립보드 복사 실패: ' + e.message);
+  }
+};
+
+/* ===================== 공유 (File System Access API) ===================== */
+let sharedHandle = null;
+
+/* 브라우저를 새로고침해도 "어떤 파일에 연결했었는지"를 기억하기 위한 저장소.
+   FileSystemHandle 자체는 IndexedDB에만 저장할 수 있습니다. */
+const IDB_NAME = 'cardEditorFS', IDB_STORE = 'handles', IDB_KEY = 'sharedHandle';
+function idbOpen(){
+  return new Promise((res, rej)=>{
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = ()=> req.result.createObjectStore(IDB_STORE);
+    req.onsuccess = ()=> res(req.result);
+    req.onerror = ()=> rej(req.error);
+  });
+}
+async function idbSetHandle(handle){
+  const db = await idbOpen();
+  return new Promise((res, rej)=>{
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(handle, IDB_KEY);
+    tx.oncomplete = ()=> res();
+    tx.onerror = ()=> rej(tx.error);
+  });
+}
+async function idbGetHandle(){
+  const db = await idbOpen();
+  return new Promise((res, rej)=>{
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const req = tx.objectStore(IDB_STORE).get(IDB_KEY);
+    req.onsuccess = ()=> res(req.result || null);
+    req.onerror = ()=> rej(req.error);
+  });
+}
+
+function updateShareStatus(connected, name){
+  document.getElementById('shareDot').classList.toggle('on', !!connected);
+  document.getElementById('shareStatus').textContent = connected ? `연결됨: ${name}` : '연결된 공유 파일 없음';
+}
+
+/* 페이지를 열 때, 예전에 연결했던 파일이 있는지 확인. 권한이 남아있으면 자동 연결,
+   권한을 다시 물어봐야 하면 "재연결" 버튼을 보여줌 (브라우저 보안정책상 버튼 클릭이 있어야 권한 재요청 가능) */
+let pendingHandle = null;
+async function tryRestoreShareHandle(){
+  if(!window.indexedDB || !window.showOpenFilePicker) return;
+  try{
+    const handle = await idbGetHandle();
+    if(!handle) return;
+    const perm = await handle.queryPermission({ mode:'readwrite' });
+    if(perm === 'granted'){
+      sharedHandle = handle;
+      updateShareStatus(true, handle.name);
+    } else {
+      pendingHandle = handle;
+      document.getElementById('shareStatus').textContent = `이전 연결 파일: ${handle.name} (재연결 필요)`;
+      document.getElementById('btnReconnectShare').style.display = '';
+    }
+  }catch(e){ /* 저장된 핸들이 없거나 읽을 수 없음 - 무시 */ }
+}
+document.getElementById('btnReconnectShare').onclick = async ()=>{
+  if(!pendingHandle) return;
+  try{
+    const perm = await pendingHandle.requestPermission({ mode:'readwrite' });
+    if(perm === 'granted'){
+      sharedHandle = pendingHandle;
+      updateShareStatus(true, pendingHandle.name);
+      document.getElementById('btnReconnectShare').style.display = 'none';
+      document.getElementById('shareErr').textContent = '';
+      toast('재연결되었습니다. "공유 보관함 불러오기"를 눌러 최신 내용을 확인하세요.');
+    } else {
+      toast('권한이 거부되었습니다. "② 기존 공유 파일 열기"로 다시 선택해주세요.');
+    }
+  }catch(e){ showShareError(e); }
+};
+tryRestoreShareHandle();
+
+function showShareError(e){
+  const msg = (e && (e.name || e.message)) ? `${e.name || ''} ${e.message || ''}`.trim() : String(e);
+  document.getElementById('shareErr').textContent = '오류: ' + msg;
+  toast('연결 실패 - 아래 빨간 글씨 오류 내용을 확인하세요');
+}
+
+function checkFsSupport(){
+  if(!window.showSaveFilePicker || !window.showOpenFilePicker){
+    document.getElementById('shareErr').textContent =
+      '이 브라우저/실행 방식은 파일 직접 연결(File System Access API)을 지원하지 않습니다. Chrome 또는 Edge 최신 버전에서 열어야 하며, 일부 사내 보안 정책이나 파일을 압축(zip) 상태에서 열면 지원되지 않을 수 있습니다. 이 경우 아래 "JSON 내보내기/가져오기"를 사용하세요.';
+    return false;
+  }
+  document.getElementById('shareErr').textContent = '';
+  return true;
+}
+
+document.getElementById('btnCreateShare').onclick = async ()=>{
+  if(!checkFsSupport()) return;
+  try{
+    const handle = await window.showSaveFilePicker({
+      suggestedName: '카드보관함_공유.json',
+      types: [{ description:'보관함 공유 파일', accept: {'application/json': ['.json']} }]
+    });
+    const writable = await handle.createWritable();
+    await writable.write(JSON.stringify({ archive }, null, 2));
+    await writable.close();
+    sharedHandle = handle;
+    await idbSetHandle(handle);
+    document.getElementById('btnReconnectShare').style.display = 'none';
+    updateShareStatus(true, handle.name);
+    document.getElementById('shareErr').textContent = '';
+    toast('새 공유 파일을 만들어 연결했습니다. 이제 다른 사람은 "② 기존 공유 파일 열기"로 이 파일을 선택하면 됩니다.');
+  }catch(e){
+    if(e && e.name === 'AbortError'){ document.getElementById('shareErr').textContent = ''; return; } // 사용자가 저장창을 닫음(취소) - 에러 아님
+    showShareError(e);
+  }
+};
+
+document.getElementById('btnOpenShare').onclick = async ()=>{
+  if(!checkFsSupport()) return;
+  try{
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description:'보관함 공유 파일', accept: {'application/json': ['.json']} }]
+    });
+    sharedHandle = handle;
+    await idbSetHandle(handle);
+    document.getElementById('btnReconnectShare').style.display = 'none';
+    updateShareStatus(true, handle.name);
+    document.getElementById('shareErr').textContent = '';
+    toast('공유 파일에 연결되었습니다. "공유 보관함 불러오기"를 눌러 내용을 가져오세요.');
+  }catch(e){
+    if(e && e.name === 'AbortError'){ document.getElementById('shareErr').textContent = ''; return; }
+    showShareError(e);
+  }
+};
+
+document.getElementById('btnPullShare').onclick = async ()=>{
+  if(!sharedHandle){ toast('먼저 공유 파일을 연결하세요'); return; }
+  try{
+    const file = await sharedHandle.getFile();
+    const text = await file.text();
+    const data = JSON.parse(text);
+    mergeArchive(data.archive || []);
+    toast('공유 보관함을 불러와 합쳤습니다');
+  }catch(e){ toast('불러오기 실패: ' + e.message); }
+};
+
+document.getElementById('btnPushShare').onclick = async ()=>{
+  if(!sharedHandle){ toast('먼저 공유 파일을 연결하세요'); return; }
+  try{
+    const writable = await sharedHandle.createWritable();
+    await writable.write(JSON.stringify({ archive }, null, 2));
+    await writable.close();
+    toast('공유 파일에 저장되었습니다. 다른 사람도 "공유 보관함 불러오기"로 확인할 수 있습니다.');
+  }catch(e){ toast('저장 실패: ' + e.message); }
+};
+
+function mergeArchive(incoming){
+  const existingIds = new Set(archive.map(a=>a.id));
+  incoming.forEach(a=>{ if(!existingIds.has(a.id)) archive.push(a); });
+  archive.sort((a,b)=> new Date(b.savedAt) - new Date(a.savedAt));
+  persistArchive();
+  renderArchive();
+}
+
+/* JSON 파일 내보내기/가져오기 (모든 브라우저 대응) */
+document.getElementById('btnExportJson').onclick = ()=>{
+  const blob = new Blob([JSON.stringify({ archive }, null, 2)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '카드보관함_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+};
+document.getElementById('btnImportJsonBtn').onclick = ()=> document.getElementById('btnImportJson').click();
+document.getElementById('btnImportJson').onchange = (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const data = JSON.parse(reader.result);
+      mergeArchive(data.archive || []);
+    }catch(err){ toast('JSON 파일을 읽을 수 없습니다'); }
+  };
+  reader.readAsText(f);
+};
+
+/* ===================== 엑셀 연동 ===================== */
+document.getElementById('btnPickExcel').onclick = ()=> document.getElementById('excelFile').click();
+document.getElementById('excelFile').onchange = (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    const wb = XLSX.read(ev.target.result, { type:'binary' });
+    // "데이터" 시트가 있으면 우선 사용, 없으면 첫 시트
+    const sheetName = wb.SheetNames.includes('데이터') ? '데이터' : wb.SheetNames[0];
+    const ws = wb.Sheets[sheetName];
+    let rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+    // 안내문/머리글 행을 자동 탐지: "품명" 이 포함된 행을 헤더로 사용
+    let headerIdx = rows.findIndex(r => r.some(cell => String(cell).includes('품명')));
+    if(headerIdx === -1) headerIdx = 0;
+    const header = rows[headerIdx];
+    const dataRows = rows.slice(headerIdx+1).filter(r => r.some(c=>String(c).trim()!==''));
+    renderExcelTable(header, dataRows);
+    toast(`"${sheetName}" 시트에서 ${dataRows.length}개 행을 불러왔습니다`);
+  };
+  reader.readAsBinaryString(f);
+};
+
+function renderExcelTable(header, rows){
+  const wrap = document.getElementById('excelTableWrap');
+  const idxOf = (name)=> header.findIndex(h=>String(h).includes(name));
+  const iName = idxOf('품명'), iModel = idxOf('형번'), iQty = idxOf('수량'), iPrice = idxOf('단가'), iDelivery = idxOf('납기'), iSpec = idxOf('규격');
+  wrap.innerHTML = `<table class="excel-table"><thead><tr>${header.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map((r,i)=>`<tr data-i="${i}">${header.map((h,ci)=>`<td>${r[ci] ?? ''}</td>`).join('')}</tr>`).join('')}</tbody></table>
+    <div class="hint" style="margin-top:8px;">행을 클릭하면 해당 데이터로 새 카드가 만들어집니다.</div>`;
+  wrap.querySelectorAll('tbody tr').forEach(tr=>{
+    tr.onclick = ()=>{
+      const r = rows[Number(tr.dataset.i)];
+      const price = Number(String(r[iPrice] ?? 0).replace(/[^0-9.]/g,'')) || 0;
+      const nc = defaultCard();
+      nc.name = iName>=0 ? String(r[iName]) : nc.name;
+      nc.model = iModel>=0 ? String(r[iModel]) : nc.model;
+      nc.delivery = iDelivery>=0 ? ('납기 : ' + r[iDelivery]) : nc.delivery;
+      nc.category = iSpec>=0 && r[iSpec] ? String(r[iSpec]) : nc.category;
+      nc.listPrice = price;
+      nc.salePrice = Math.round(price * (1 - nc.badge/100));
+      cards.push(nc); persistCards();
+      document.querySelector('.tab[data-panel="editPanel"]').click();
+      renderGrid();
+      toast('엑셀 값으로 새 카드를 추가했습니다');
+    };
+  });
+}
+
+/* ===================== 초기화 ===================== */
+renderGrid();
+</script>
+</body>
+</html>
