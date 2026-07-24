@@ -146,7 +146,7 @@
     <datalist id="taListDatalist"></datalist>
     <input id="customerEmail" placeholder="고객 이메일 (선택)" style="padding:9px 12px;border-radius:8px;border:none;font-size:13px;width:170px;">
     <button class="btn ghost" id="btnAddCard">+ 카드 추가</button>
-    <button class="btn ghost" id="btnCheckAllLinks">🔗 전체 링크 확인</button>
+    <button class="btn ghost" id="btnCheckAllLinks">🔍 발송 전 체크리스트</button>
     <select id="mailTplSelect" title="메일 종류 선택" style="padding:9px 10px;border-radius:8px;border:none;font-size:13px;"></select>
     <button class="btn ghost" id="btnPrepMail">Outlook 메일 준비 (제목·인사말 자동)</button>
     <button class="btn primary" id="btnCopyAll">이미지로 복사 (링크 유지)</button>
@@ -540,6 +540,7 @@ function renderGrid(){
           <button data-act="toArchive">보관함 저장</button>
         </div>
         <div class="row-btns">
+          <button data-act="dup" title="이 카드와 같은 내용으로 하나 더 만들기">복제</button>
           <button data-act="delete" class="danger">삭제</button>
         </div>
       </div>
@@ -558,7 +559,11 @@ function renderGrid(){
           const num = Number(val.replace(/[^0-9]/g,'')) || 0;
           c[field] = num;
           el.textContent = fmtWon(num);
-          persistCards(); renderGrid(); // 이익률 표시(사입가 메모)도 즉시 다시 계산되도록 재렌더링
+          // 판매가를 직접 고치면 정가 기준 할인율 배지도 같이 맞춰준다(배지→판매가는 이미 되고 있었는데 반대방향이 안 되고 있었음)
+          if(field === 'salePrice'){
+            c.badge = c.listPrice > 0 ? Math.max(0, Math.min(100, Math.round((1 - num / c.listPrice) * 100))) : 0;
+          }
+          persistCards(); renderGrid(); // 배지·이익률 메모도 즉시 다시 계산되도록 재렌더링
           return;
         }
         c[field] = val;
@@ -679,6 +684,15 @@ function renderGrid(){
       cards.splice(idx,1); persistCards(); renderGrid();
     };
 
+    // 복제 - 같은 상품을 다른 고객사에도 보내거나, 비슷한 카드를 여러 개 만들 때
+    wrap.querySelector('[data-act="dup"]').onclick = ()=>{
+      const copy = JSON.parse(JSON.stringify(c));
+      copy.id = uid();
+      cards.splice(idx+1, 0, copy);
+      persistCards(); renderGrid();
+      toast('카드가 복제되었습니다.');
+    };
+
     // 보관함 저장(단일 카드)
     wrap.querySelector('[data-act="toArchive"]').onclick = ()=> saveCardToArchive(c);
   });
@@ -692,21 +706,43 @@ function renderGrid(){
 }
 document.getElementById('btnAddCard').onclick = ()=>{ cards.push(defaultCard()); persistCards(); renderGrid(); };
 
-// 전체 링크 확인: 지금 편집 중인 모든 카드의 링크를 한 화면에 모아서, 하나씩 새 탭으로 열어 정확한지 확인
+// 발송 전 체크리스트: 카드별로 이미지·형번·링크·가격이 다 채워졌는지 한 화면에서 점검하고,
+// 링크는 "열기"로 새 탭에서 실제 상품이 맞는지 바로 확인할 수 있게 한다.
+function cardIssues(c){
+  const issues = [];
+  if(!c.img) issues.push('이미지 없음');
+  if(!c.model || c.model === '형번') issues.push('형번 미입력');
+  if(!c.name || c.name === '상품명을 입력하세요') issues.push('상품명 미입력');
+  if(!c.link) issues.push('링크 없음');
+  if(!(c.salePrice > 0)) issues.push('판매가 없음');
+  return issues;
+}
 document.getElementById('btnCheckAllLinks').onclick = ()=>{
   if(cards.length===0){ toast('확인할 카드가 없습니다.'); return; }
   const overlay = document.getElementById('modalOverlay');
-  const rows = cards.map((c,i)=>`
+  const problemCount = cards.filter(c=> cardIssues(c).length>0).length;
+  const summary = problemCount===0
+    ? `<div style="padding:10px;border-radius:8px;background:#e8f5e9;color:#2e7d32;font-weight:700;text-align:center;margin-bottom:10px;">✅ 카드 ${cards.length}개 모두 발송 준비 완료</div>`
+    : `<div style="padding:10px;border-radius:8px;background:#fdecea;color:var(--red);font-weight:700;text-align:center;margin-bottom:10px;">⚠ ${cards.length}개 중 ${problemCount}개 카드에 확인이 필요합니다</div>`;
+  const rows = cards.map((c,i)=>{
+    const issues = cardIssues(c);
+    const statusHtml = issues.length
+      ? `<span style="color:var(--red);font-size:11.5px;">⚠ ${issues.join(' · ')}</span>`
+      : `<span style="color:#2e7d32;font-size:11.5px;">✅ 이상 없음</span>`;
+    return `
     <div class="tpl-list-item" style="margin:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
       <div style="overflow:hidden;">
-        <b>${escapeHtml(c.model || '(형번 없음)')}</b><br>
-        <span style="color:var(--text-sub);font-size:11.5px;word-break:break-all;">${c.link ? escapeHtml(c.link) : '링크 없음'}</span>
+        <b>${escapeHtml(c.model || '(형번 없음)')}</b> <span style="color:var(--text-sub);font-weight:400;">${escapeHtml(c.name||'')}</span><br>
+        ${statusHtml}<br>
+        <span style="color:var(--text-sub);font-size:11px;word-break:break-all;">${c.link ? escapeHtml(c.link) : '링크 없음'}</span>
       </div>
       <button class="btn" data-open="${i}" ${c.link ? '' : 'disabled'} style="flex:none;">열기↗</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   overlay.innerHTML = `<div class="modal-box">
-    <h3>전체 링크 확인</h3>
-    <p>카드별로 "열기"를 눌러 새 탭에서 실제로 맞는 상품 페이지로 연결되는지 하나씩 확인하세요.</p>
+    <h3>발송 전 체크리스트</h3>
+    <p>카드별로 이미지·형번·상품명·링크·판매가가 다 채워졌는지 확인하고, "열기"로 링크가 실제 맞는 상품인지 확인하세요.</p>
+    ${summary}
     <div style="max-height:400px;overflow:auto;border:1px solid var(--gray-line);border-radius:6px;">${rows}</div>
     <div class="modal-actions"><button class="btn" id="modalCancel">닫기</button></div>
   </div>`;
@@ -1183,6 +1219,60 @@ let seriesMaster = null; // { 시리즈코드: 시리즈명 }
 const modelShardCache = new Map(); // prefix(2글자, 대문자) -> [[형번, 시리즈코드], ...]
 let modelDataMissing = false;
 
+/* ----- 최근 사용 / 즐겨찾기 형번 (자주 보내는 상품을 매번 검색하지 않도록) ----- */
+const LS_RECENT_MODELS = 'cardEditor.recentModels.v1';
+const LS_FAV_MODELS = 'cardEditor.favModels.v1';
+function getRecentModels(){ return JSON.parse(localStorage.getItem(LS_RECENT_MODELS) || 'null') || []; }
+function getFavModels(){ return JSON.parse(localStorage.getItem(LS_FAV_MODELS) || 'null') || []; }
+function isFavModel(model){ return getFavModels().some(x=>x.model===model); }
+function pushRecentModel(entry){
+  let list = getRecentModels().filter(x=> x.model !== entry.model);
+  list.unshift(entry);
+  if(list.length > 12) list = list.slice(0,12);
+  localStorage.setItem(LS_RECENT_MODELS, JSON.stringify(list));
+}
+function toggleFavModel(entry){
+  let list = getFavModels();
+  if(list.some(x=>x.model===entry.model)){
+    list = list.filter(x=>x.model!==entry.model);
+  }else{
+    list.unshift(entry);
+    if(list.length > 30) list = list.slice(0,30);
+  }
+  localStorage.setItem(LS_FAV_MODELS, JSON.stringify(list));
+}
+// 형번 검색창에 아직 2글자를 안 쳤을 때, 즐겨찾기·최근 사용 형번을 바로 고를 수 있게 보여준다.
+function renderQuickAccessHtml(){
+  const favs = getFavModels();
+  const recents = getRecentModels().filter(r=> !favs.some(f=>f.model===r.model));
+  const chip = (e, isFav)=> `
+    <div class="tpl-list-item" style="margin:4px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px;" data-qmodel="${escapeHtml(e.model)}" data-qlink="${escapeHtml(e.link||'')}" data-qseries="${escapeHtml(e.seriesCode||'')}" data-qname="${escapeHtml(e.seriesName||'')}">
+      <span style="overflow:hidden;"><b>${escapeHtml(e.model)}</b>${e.seriesName ? ` <span style="color:var(--text-sub);font-weight:400;">- ${escapeHtml(e.seriesName)}</span>` : ''}</span>
+      <button class="btn" data-fav-toggle="1" style="flex:none;padding:2px 8px;">${isFav ? '★' : '☆'}</button>
+    </div>`;
+  let html = '';
+  if(favs.length) html += `<div style="font-size:11.5px;color:var(--text-sub);margin:6px 6px 2px;">⭐ 즐겨찾기</div>` + favs.map(e=>chip(e,true)).join('');
+  if(recents.length) html += `<div style="font-size:11.5px;color:var(--text-sub);margin:8px 6px 2px;">🕐 최근 사용</div>` + recents.map(e=>chip(e,false)).join('');
+  if(!favs.length && !recents.length){
+    html = `<div style="padding:12px;color:#9aa0a6;font-size:12.5px;">2글자 이상 입력하면 형번을 검색할 수 있습니다. 자주 쓰는 형번은 검색 결과의 ☆를 눌러 즐겨찾기에 등록해두세요.</div>`;
+  }
+  return html;
+}
+function wireQuickAccess(container, onSelect){
+  container.querySelectorAll('[data-qmodel]').forEach(row=>{
+    row.onclick = (e)=>{
+      if(e.target.closest('[data-fav-toggle]')) return;
+      onSelect({ model: row.dataset.qmodel, seriesCode: row.dataset.qseries, seriesName: row.dataset.qname||'', link: row.dataset.qlink });
+    };
+    row.querySelector('[data-fav-toggle]').onclick = (e)=>{
+      e.stopPropagation();
+      toggleFavModel({ model: row.dataset.qmodel, seriesCode: row.dataset.qseries, seriesName: row.dataset.qname||'', link: row.dataset.qlink });
+      container.innerHTML = renderQuickAccessHtml();
+      wireQuickAccess(container, onSelect);
+    };
+  });
+}
+
 async function loadSeriesMaster(){
   if(seriesMaster) return seriesMaster;
   try{
@@ -1221,10 +1311,23 @@ function openModelSearchModal(card){
   const overlay = document.getElementById('modalOverlay');
   let debounceTimer = null;
 
+  // 검색 결과/즐겨찾기/최근목록/대체검색 어디서 골랐든 카드에 반영하는 방식은 동일하다.
+  const selectModel = (entry)=>{
+    card.model = entry.model;
+    card.link = entry.link;
+    persistCards(); renderGrid();
+    pushRecentModel(entry);
+    overlay.style.display = 'none'; overlay.innerHTML = '';
+    toast(entry.seriesCode
+      ? `형번과 상품 링크(시리즈코드 ${entry.seriesCode})가 채워졌습니다.`
+      : `형번(${entry.model})과 미스미 검색 링크가 채워졌습니다. 정확한 상품인지 확인해 주세요.`);
+  };
+
   const runSearch = async (input, resultsEl)=>{
     const q = input.value;
     if(q.trim().length < 2){
-      resultsEl.innerHTML = `<div style="padding:12px;color:#9aa0a6;font-size:12.5px;">2글자 이상 입력하세요.</div>`;
+      resultsEl.innerHTML = renderQuickAccessHtml();
+      wireQuickAccess(resultsEl, selectModel);
       return;
     }
     resultsEl.innerHTML = `<div style="padding:12px;color:#9aa0a6;font-size:12.5px;">검색 중...</div>`;
@@ -1236,13 +1339,7 @@ function openModelSearchModal(card){
         <div class="tpl-list-item" data-fallback="1" style="margin:6px;">
           <b>"${escapeHtml(kw)}"</b>로 미스미 사이트에서 직접 검색 <span style="color:var(--text-sub);font-weight:400;">(정확한 상품인지 직접 확인 필요)</span>
         </div>`;
-      resultsEl.querySelector('[data-fallback]').onclick = ()=>{
-        card.model = kw;
-        card.link = misumiSearchUrl(kw);
-        persistCards(); renderGrid();
-        overlay.style.display = 'none'; overlay.innerHTML = '';
-        toast(`형번(${kw})과 미스미 검색 링크가 채워졌습니다. 정확한 상품인지 확인해 주세요.`);
-      };
+      resultsEl.querySelector('[data-fallback]').onclick = ()=> selectModel({ model: kw, seriesCode:'', seriesName:'', link: misumiSearchUrl(kw) });
       return;
     }
     if(list.length===0){
@@ -1252,33 +1349,31 @@ function openModelSearchModal(card){
         <div class="tpl-list-item" data-fallback="1" style="margin:6px;">
           <b>"${escapeHtml(kw)}"</b>로 미스미 사이트에서 직접 검색 <span style="color:var(--text-sub);font-weight:400;">(정확한 상품인지 직접 확인 필요)</span>
         </div>`;
-      resultsEl.querySelector('[data-fallback]').onclick = ()=>{
-        card.model = kw;
-        card.link = misumiSearchUrl(kw);
-        persistCards(); renderGrid();
-        overlay.style.display = 'none'; overlay.innerHTML = '';
-        toast(`형번(${kw})과 미스미 검색 링크가 채워졌습니다. 정확한 상품인지 확인해 주세요.`);
-      };
+      resultsEl.querySelector('[data-fallback]').onclick = ()=> selectModel({ model: kw, seriesCode:'', seriesName:'', link: misumiSearchUrl(kw) });
       return;
     }
     resultsEl.innerHTML = list.map(r=>`
-      <div class="tpl-list-item" style="margin:6px;" data-model="${escapeHtml(r.model)}" data-series="${escapeHtml(r.seriesCode)}">
-        <b>${escapeHtml(r.model)}</b> <span style="color:var(--text-sub);font-weight:400;">- ${escapeHtml(r.seriesName || '(시리즈명 없음)')}</span>
+      <div class="tpl-list-item" style="margin:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;" data-model="${escapeHtml(r.model)}" data-series="${escapeHtml(r.seriesCode)}" data-name="${escapeHtml(r.seriesName||'')}">
+        <span style="overflow:hidden;"><b>${escapeHtml(r.model)}</b> <span style="color:var(--text-sub);font-weight:400;">- ${escapeHtml(r.seriesName || '(시리즈명 없음)')}</span></span>
+        <button class="btn" data-fav-toggle-row="1" style="flex:none;padding:2px 8px;">${isFavModel(r.model) ? '★' : '☆'}</button>
       </div>`).join('');
     resultsEl.querySelectorAll('[data-model]').forEach(el=>{
-      el.onclick = ()=>{
-        card.model = el.dataset.model;
-        card.link = misumiDetailUrl(el.dataset.series);
-        persistCards(); renderGrid();
-        overlay.style.display = 'none'; overlay.innerHTML = '';
-        toast(`형번과 상품 링크(시리즈코드 ${el.dataset.series})가 채워졌습니다.`);
+      const entryOf = ()=> ({ model: el.dataset.model, seriesCode: el.dataset.series, seriesName: el.dataset.name||'', link: misumiDetailUrl(el.dataset.series) });
+      el.querySelector('[data-fav-toggle-row]').onclick = (e)=>{
+        e.stopPropagation();
+        toggleFavModel(entryOf());
+        e.currentTarget.textContent = isFavModel(el.dataset.model) ? '★' : '☆';
+      };
+      el.onclick = (e)=>{
+        if(e.target.closest('[data-fav-toggle-row]')) return;
+        selectModel(entryOf());
       };
     });
   };
 
   overlay.innerHTML = `<div class="modal-box">
     <h3>형번 검색</h3>
-    <p>형번 앞부분(2글자 이상)을 입력하면 후보가 뜹니다. 고르면 형번과 상품 링크가 자동으로 채워집니다.</p>
+    <p>형번 앞부분(2글자 이상)을 입력하면 후보가 뜹니다. 고르면 형번과 상품 링크가 자동으로 채워집니다. 자주 쓰는 형번은 ☆를 눌러 즐겨찾기에 등록해두면, 다음부터는 검색 없이 바로 고를 수 있습니다.</p>
     <input id="modelSearchInput" placeholder="예: MS3, LEMS16" style="width:100%;padding:9px 12px;border:1px solid var(--gray-line);border-radius:6px;font-size:13px;margin-bottom:10px;">
     <div id="modelSearchResults" style="max-height:280px;overflow:auto;border:1px solid var(--gray-line);border-radius:6px;"></div>
     <div class="modal-actions"><button class="btn" id="modalCancel">닫기</button></div>
