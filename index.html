@@ -462,6 +462,17 @@ function logSend(customerOverride, tplName){
 }
 
 function fmtWon(n){ return '₩' + Math.round(n).toLocaleString() + '원'; }
+
+// 사입가 대비 이익률 메모(내부용). 마진 구간에 따라 색이 바뀐다: 적자=빨강, 20% 미만=주황, 20% 이상=초록.
+function marginNoteHtml(c){
+  if(!(c.costPrice > 0)) return '';
+  if(!(c.salePrice > 0)){
+    return `<div style="font-size:11px;color:#9aa0a6;padding:4px 2px 0;">(내부용) 사입가 ${fmtWon(c.costPrice)}</div>`;
+  }
+  const margin = ((c.salePrice - c.costPrice) / c.salePrice) * 100;
+  const color = margin < 0 ? 'var(--red)' : (margin < 20 ? '#8a6d00' : '#2e7d32');
+  return `<div style="font-size:11px;color:${color};font-weight:700;padding:4px 2px 0;">(내부용) 사입가 ${fmtWon(c.costPrice)} · 이익률 ${margin.toFixed(1)}%</div>`;
+}
 function toast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
@@ -508,7 +519,7 @@ function renderGrid(){
           ${c.validUntil ? `<div class="row2" style="color:#d97706;margin-top:4px;">가격 유효기간: ${escapeHtml(c.validUntil)}</div>` : ''}
         </div>
       </div>
-      ${c.costPrice > 0 ? `<div style="font-size:11px;color:#9aa0a6;padding:4px 2px 0;">(내부용) 사입가 ${fmtWon(c.costPrice)} · 이익률 ${(((c.salePrice-c.costPrice)/c.salePrice)*100).toFixed(1)}%</div>` : ''}
+      ${marginNoteHtml(c)}
       <div class="card-actions">
         <div class="row-btns">
           <button data-act="modelSearch">형번 검색 (링크 자동)</button>
@@ -547,6 +558,7 @@ function renderGrid(){
           const num = Number(val.replace(/[^0-9]/g,'')) || 0;
           c[field] = num;
           el.textContent = fmtWon(num);
+          persistCards(); renderGrid(); // 이익률 표시(사입가 메모)도 즉시 다시 계산되도록 재렌더링
           return;
         }
         c[field] = val;
