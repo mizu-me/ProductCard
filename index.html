@@ -1298,32 +1298,27 @@ function openModelSearchModal(card){
 }
 
 /* ===================== 사입가 / 이익률 실시간 계산 =====================
-   기존엔 prompt() 한 줄로 사입가만 입력받았는데, 할인율을 이리저리 바꿔보면서
-   판매가·이익률이 어떻게 바뀌는지 바로 보고 싶다는 요청으로 전용 모달을 만든다.
-   정가(고정) 기준으로 할인율 ↔ 판매가는 서로 계산해서 동기화되고, 사입가와 함께
-   이익률 = (판매가-사입가)/판매가 * 100 을 입력하는 즉시 다시 계산해 보여준다. */
+   정가(listPrice)는 데이터가 들쭉날쭉해서(예: 판매가가 정가보다 큰 경우도 있음) 계산에 끼워 넣으면
+   할인율 역산 로직이 꼬인다. 그래서 정가는 화면에 참고용으로만 보여주고, 실제 계산은
+   "사입가"와 "판매가" 두 값만 가지고 한다: 이익 = 판매가 - 사입가, 이익률 = 이익 / 판매가 × 100.
+   두 입력칸 중 뭘 바꾸든 즉시 다시 계산해서, 계산식 자체를 그대로 화면에 풀어서 보여준다
+   (그냥 "이익률 20%"만 보여주면 어떻게 나온 숫자인지 헷갈리기 쉬워서). */
 function openCostPriceModal(card){
   const overlay = document.getElementById('modalOverlay');
 
   overlay.innerHTML = `<div class="modal-box">
     <h3>사입가 / 이익률 계산</h3>
-    <p style="font-size:12.5px;color:var(--text-sub);margin-top:2px;">사입가를 입력하고 할인율을 움직여보면서 판매가와 이익률이 실시간으로 바뀌는 걸 확인하세요. (내부 참고용 — 고객에게 보내는 카드/메일에는 절대 표시되지 않습니다)</p>
+    <p style="font-size:12.5px;color:var(--text-sub);margin-top:2px;">사입가와 판매가를 입력하면 이익률이 실시간으로 계산됩니다. (내부 참고용 — 고객에게 보내는 카드/메일에는 절대 표시되지 않습니다)</p>
 
-    <div style="margin:10px 0 14px;font-size:13px;">정가: <b>${fmtWon(card.listPrice)}</b></div>
+    <div style="margin:10px 0 14px;font-size:12px;color:var(--text-sub);">정가(참고용, 계산에는 쓰이지 않음): ${fmtWon(card.listPrice)}</div>
+
+    <label style="font-size:12.5px;color:var(--text-sub);">판매가</label>
+    <input id="cpSalePrice" type="number" min="0" step="1" value="${card.salePrice || 0}" style="width:100%;padding:9px 12px;border:1px solid var(--gray-line);border-radius:6px;font-size:13px;margin:4px 0 14px;">
 
     <label style="font-size:12.5px;color:var(--text-sub);">사입가(원가)</label>
     <input id="cpCost" type="number" min="0" step="1" value="${card.costPrice || 0}" style="width:100%;padding:9px 12px;border:1px solid var(--gray-line);border-radius:6px;font-size:13px;margin:4px 0 14px;">
 
-    <label style="font-size:12.5px;color:var(--text-sub);">할인율(%)</label>
-    <div style="display:flex;align-items:center;gap:10px;margin:4px 0 14px;">
-      <input id="cpDiscountRange" type="range" min="0" max="100" step="1" value="${card.badge || 0}" style="flex:1;">
-      <input id="cpDiscountNum" type="number" min="0" max="100" step="1" value="${card.badge || 0}" style="width:60px;padding:6px;border:1px solid var(--gray-line);border-radius:6px;font-size:13px;text-align:center;">
-    </div>
-
-    <label style="font-size:12.5px;color:var(--text-sub);">판매가 (직접 입력해도 할인율에 자동 반영됨)</label>
-    <input id="cpSalePrice" type="number" min="0" step="1" value="${card.salePrice || 0}" style="width:100%;padding:9px 12px;border:1px solid var(--gray-line);border-radius:6px;font-size:13px;margin:4px 0 14px;">
-
-    <div id="cpMarginBox" style="padding:12px;border-radius:8px;text-align:center;font-size:14.5px;font-weight:700;"></div>
+    <div id="cpMarginBox" style="padding:12px;border-radius:8px;"></div>
 
     <div class="modal-actions" style="margin-top:14px;">
       <button class="btn" id="modalCancel">취소</button>
@@ -1333,57 +1328,38 @@ function openCostPriceModal(card){
   overlay.style.display = 'flex';
 
   const costEl = overlay.querySelector('#cpCost');
-  const rangeEl = overlay.querySelector('#cpDiscountRange');
-  const discNumEl = overlay.querySelector('#cpDiscountNum');
   const saleEl = overlay.querySelector('#cpSalePrice');
   const marginBox = overlay.querySelector('#cpMarginBox');
 
   const renderMargin = ()=>{
-    const cost = Number(costEl.value) || 0;
-    const sale = Number(saleEl.value) || 0;
+    // 음수/문자 입력 방지 - 가격은 0 이상으로만 취급
+    const cost = Math.max(0, Number(costEl.value) || 0);
+    const sale = Math.max(0, Number(saleEl.value) || 0);
     if(sale <= 0){
       marginBox.style.background = '#f1f1f1';
-      marginBox.style.color = 'var(--text-sub)';
-      marginBox.textContent = '판매가를 입력하면 이익률이 표시됩니다.';
+      marginBox.innerHTML = `<div style="text-align:center;font-size:13px;color:var(--text-sub);">판매가를 입력하면 이익률이 표시됩니다.</div>`;
       return;
     }
-    const margin = (sale - cost) / sale * 100;
-    const good = margin >= 20;
-    marginBox.style.background = margin < 0 ? '#fdecea' : (good ? '#e8f5e9' : '#fff8e1');
-    marginBox.style.color = margin < 0 ? 'var(--red)' : (good ? '#2e7d32' : '#8a6d00');
-    marginBox.textContent = `이익률 ${margin.toFixed(1)}%  (판매가 ${fmtWon(sale)} − 사입가 ${fmtWon(cost)})`;
+    const profit = sale - cost; // 이익 = 판매가 - 사입가
+    const margin = (profit / sale) * 100; // 이익률 = 이익 ÷ 판매가 × 100
+    const color = margin < 0 ? 'var(--red)' : (margin < 20 ? '#8a6d00' : '#2e7d32');
+    marginBox.style.background = margin < 0 ? '#fdecea' : (margin < 20 ? '#fff8e1' : '#e8f5e9');
+    marginBox.innerHTML = `
+      <div style="text-align:center;font-size:17px;font-weight:800;color:${color};">이익률 ${margin.toFixed(1)}%</div>
+      <div style="text-align:center;font-size:11.5px;color:var(--text-sub);margin-top:6px;line-height:1.6;">
+        이익 = 판매가 ${fmtWon(sale)} − 사입가 ${fmtWon(cost)} = ${fmtWon(profit)}<br>
+        이익률 = 이익 ${fmtWon(profit)} ÷ 판매가 ${fmtWon(sale)} × 100 = ${margin.toFixed(1)}%
+      </div>`;
   };
 
-  const applyDiscountToSale = ()=>{
-    const discount = Math.max(0, Math.min(100, Number(rangeEl.value) || 0));
-    saleEl.value = Math.round(card.listPrice * (1 - discount/100));
-    renderMargin();
-  };
-
-  rangeEl.oninput = ()=>{ discNumEl.value = rangeEl.value; applyDiscountToSale(); };
-  discNumEl.oninput = ()=>{
-    const v = Math.max(0, Math.min(100, Number(discNumEl.value) || 0));
-    rangeEl.value = v; discNumEl.value = v;
-    applyDiscountToSale();
-  };
-  saleEl.oninput = ()=>{
-    // 판매가를 직접 고치면 정가 기준으로 할인율을 역산해서 슬라이더도 같이 맞춰준다
-    if(card.listPrice > 0){
-      const discount = Math.max(0, Math.min(100, (1 - (Number(saleEl.value)||0) / card.listPrice) * 100));
-      rangeEl.value = Math.round(discount);
-      discNumEl.value = Math.round(discount);
-    }
-    renderMargin();
-  };
   costEl.oninput = renderMargin;
-
+  saleEl.oninput = renderMargin;
   renderMargin();
 
   overlay.querySelector('#modalCancel').onclick = ()=>{ overlay.style.display='none'; overlay.innerHTML=''; };
   overlay.querySelector('#cpSave').onclick = ()=>{
-    card.costPrice = Number(costEl.value) || 0;
-    card.badge = Math.max(0, Math.min(100, Number(discNumEl.value) || 0));
-    card.salePrice = Number(saleEl.value) || 0;
+    card.costPrice = Math.max(0, Number(costEl.value) || 0);
+    card.salePrice = Math.max(0, Number(saleEl.value) || 0);
     persistCards(); renderGrid();
     overlay.style.display = 'none'; overlay.innerHTML = '';
     toast('사입가·판매가·이익률이 저장되었습니다.');
