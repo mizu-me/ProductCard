@@ -28,7 +28,7 @@
   .card-wrap{ width:300px; }
   .p-card{ width:300px; border:1px solid var(--gray-line); border-radius:6px; overflow:hidden; background:#fff; }
   .p-card .head{ background:var(--navy); padding:9px 12px; color:#fff; font-weight:800; font-size:13px; letter-spacing:1px; display:flex; justify-content:space-between; align-items:center; }
-  .p-card .head .b{ width:52px; height:52px; border-radius:26px; background:#f6c445; color:#1a2233; font-weight:800; font-size:16px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; line-height:1; cursor:pointer; gap:3px; }
+  .p-card .head .b{ padding:6px 14px; border-radius:4px; background:#f6c445; color:#1a2233; font-weight:800; font-size:13px; white-space:nowrap; cursor:pointer; }
   .p-card .imgbox{ width:100%; height:230px; background:#ffffff; border-bottom:1px solid var(--gray-line); display:flex; align-items:center; justify-content:center; color:#9aa0a6; font-size:13px; cursor:pointer; overflow:hidden; position:relative; }
   .p-card .imgbox:focus{ outline:2px solid var(--navy); }
   .p-card .imgbox .paste-tip{ position:absolute; bottom:2px; right:4px; font-size:9px; color:#fff; background:rgba(0,0,0,.45); padding:1px 5px; border-radius:4px; pointer-events:none; }
@@ -155,6 +155,7 @@
 
 <div class="tabs">
   <div class="tab active" data-panel="editPanel">카드 편집</div>
+  <div class="tab" data-panel="fieldPanel">외근영업</div>
   <div class="tab" data-panel="archPanel">보관함</div>
   <div class="tab" data-panel="sendLogPanel">발송이력</div>
   <div class="tab" data-panel="custPanel">고객사별</div>
@@ -166,6 +167,28 @@
 <div class="panel show" id="editPanel">
   <div class="hint">카드의 이미지·배지·텍스트를 클릭해 직접 수정하세요. 이미지는 3가지 방법으로 넣을 수 있습니다: ① <b>파일선택</b> 버튼으로 PC 사진 업로드, ② <b>이미지URL</b> 버튼에 kr.misumi-ec.com 상품페이지에서 복사한 이미지 주소 붙여넣기, ③ 이미지 칸을 클릭한 뒤 캡처한 화면을 그대로 <b>Ctrl+V</b>. 완성되면 상단 "이미지로 복사"로 Outlook에 붙여넣거나, 보관함 탭에서 저장해 다른 사람과 공유하세요.</div>
   <div class="grid" id="grid"></div>
+</div>
+
+<div class="panel" id="fieldPanel">
+  <div class="hint">
+    외근 중에도 빠르게 상품 카드를 만들 수 있는 탭입니다. 사무실에서 [카드 편집]으로 직접 하나씩 만드는 대신,
+    미리 준비된 상품 데이터 엑셀(형번·이미지·가격)을 올려두고 형번이나 상품명 일부만 검색해서 바로 카드를 만드세요.<br>
+    엑셀에는 <b>형번</b>(필수), <b>상품명·이미지URL·정가(단가)·판매가·카테고리·납기</b>(선택) 열이 있으면 자동으로 인식됩니다.
+    이미지는 URL 형태(예: kr.misumi-ec.com 상품페이지에서 복사한 이미지 주소)만 지원합니다.
+  </div>
+  <div class="share-box">
+    <h3>상품 데이터 엑셀 업로드</h3>
+    <div class="share-actions">
+      <button class="btn" id="btnPickFieldExcel">엑셀 파일 선택</button>
+      <input type="file" id="fieldExcelFile" accept=".xlsx,.xls,.csv">
+      <span id="fieldExcelStatus" style="font-size:12px;color:var(--text-sub);align-self:center;"></span>
+    </div>
+  </div>
+  <div style="margin:14px 0;display:flex;gap:8px;flex-wrap:wrap;">
+    <input id="fieldSearch" placeholder="형번·상품명 일부만 입력해도 검색됨" style="flex:1;min-width:220px;padding:9px 14px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
+    <span id="fieldCount" style="font-size:12px;color:var(--text-sub);align-self:center;"></span>
+  </div>
+  <div class="arch-grid" id="fieldGrid"></div>
 </div>
 
 <div class="panel" id="codePanel">
@@ -497,6 +520,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
     document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show'));
     tab.classList.add('active');
     document.getElementById(tab.dataset.panel).classList.add('show');
+    if(tab.dataset.panel==='fieldPanel') renderFieldGrid();
     if(tab.dataset.panel==='archPanel') renderArchive();
     if(tab.dataset.panel==='mailPanel') renderMailTemplatesTab();
     if(tab.dataset.panel==='sendLogPanel') renderSendLog();
@@ -516,7 +540,7 @@ function renderGrid(){
       <div class="p-card" data-id="${c.id}">
         <div class="head">
           MISUMI
-          <span class="b" data-act="badge"><span>${c.badge}%</span><span style="font-size:10px;font-weight:700;">할인</span></span>
+          <span class="b" data-act="badge">${c.badge}% 할인</span>
         </div>
         <div class="imgbox" data-act="img" tabindex="0" title="클릭: 파일 선택 / 여기 클릭 후 Ctrl+V: 캡처 이미지 붙여넣기">${c.img ? `<img src="${c.img}" style="transform:scale(${(c.imgScale||100)/100});">` : '상품 이미지 (클릭 또는 Ctrl+V)'}<span class="paste-tip">Ctrl+V 가능</span></div>
         ${c.img ? `<div class="zoom-row"><span style="font-size:11px;">크기</span><input type="range" min="50" max="200" value="${c.imgScale||100}" data-act="zoom"><span>${c.imgScale||100}%</span></div>` : ''}
@@ -1148,33 +1172,32 @@ document.getElementById('btnLoadSelected').onclick = ()=>{
 };
 
 /* ===================== HTML 코드 생성 ===================== */
+// 할인율 배지: 예전엔 원형(border-radius)+VML 대체 방식이었는데, Outlook에 클립보드로 붙여넣을 때
+// 원 모양이 찌그러지거나 글자가 잘리는 문제가 있었다. border-radius/VML을 아예 쓰지 않는
+// 사각형 리본 태그로 바꿔서 어떤 메일 클라이언트에 붙여넣어도 항상 같은 모양이 나오게 한다.
+function badgeTagHtml(c){
+  if(!(c.badge > 0)) return '&nbsp;';
+  return `<table role="presentation" cellpadding="0" cellspacing="0" align="right"><tr>
+    <td bgcolor="#f6c445" style="padding:6px 14px;white-space:nowrap;">
+      <font face="Malgun Gothic" color="#1a2233" size="2"><b>${c.badge}% 할인</b></font>
+    </td>
+  </tr></table>`;
+}
 function cardHtml(c){
   const FONT = "'Malgun Gothic',Arial,sans-serif";
   const imgTag = `<img src="${c.img || ''}" width="230" style="display:block;border:0;">`;
   const imgCell = c.link ? `<a href="${c.link}" target="_blank">${imgTag}</a>` : imgTag;
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="1" bordercolor="#e2e5ea" width="250" style="border-collapse:collapse;font-family:${FONT};">
 <tr>
-  <td bgcolor="#163a7a" width="180" style="padding:9px 12px;">
-    <font face="Malgun Gothic" color="#ffffff" size="3"><b>MISUMI</b></font>
-  </td>
-  <td bgcolor="#163a7a" align="center" style="padding:6px;">
-    <!--[if mso]>
-    <v:oval xmlns:v="urn:schemas-microsoft-com:vml" style="width:44px;height:44px;" fillcolor="#f6c445" stroked="false">
-    <center style="color:#1a2233;font-family:Malgun Gothic,Arial,sans-serif;font-size:11px;line-height:13px;font-weight:bold;">${c.badge}%<br>할인</center>
-    </v:oval>
-    <![endif]-->
-    <!--[if !mso]><!-->
-    <table role="presentation" cellpadding="0" cellspacing="0" style="background:#f6c445;border-radius:26px;width:44px;height:44px;">
-      <tr><td align="center" style="padding:2px;">
-        <font face="Malgun Gothic" color="#1a2233" size="2"><b>${c.badge}%</b></font><br>
-        <font face="Malgun Gothic" color="#1a2233" size="1"><b>할인</b></font>
-      </td></tr>
-    </table>
-    <!--<![endif]-->
+  <td bgcolor="#163a7a" style="padding:10px 14px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+      <td align="left" valign="middle"><font face="Malgun Gothic" color="#ffffff" size="3"><b>MISUMI</b></font></td>
+      <td align="right" valign="middle">${badgeTagHtml(c)}</td>
+    </tr></table>
   </td>
 </tr>
-<tr><td colspan="2" bgcolor="#ffffff" align="center" style="padding:10px;">${imgCell}</td></tr>
-<tr><td colspan="2" style="padding:11px 14px;">
+<tr><td bgcolor="#ffffff" align="center" style="padding:10px;">${imgCell}</td></tr>
+<tr><td style="padding:11px 14px;">
   <font face="${FONT}" color="#0A4FA3" size="1"><b>&nbsp;${c.category || ''}&nbsp;</b></font><br>
   <font face="${FONT}" color="#1a1a1a" size="4"><b>${c.name}</b></font><br>
   <font face="${FONT}" color="#444444" size="2">형번 : ${c.model}</font><br>
@@ -1223,6 +1246,126 @@ document.getElementById('btnCopyAll').onclick = async ()=>{
     toast('클립보드 복사 실패: ' + e.message);
   }
 };
+
+/* ===================== 외근영업 탭: 엑셀 상품 데이터로 빠른 카드 생성 =====================
+   사무실의 [카드 편집] 탭은 하나씩 손으로 만드는 화면이고, 외근 사원은 이미 만들어진 상품 데이터
+   (형번·이미지·가격)를 엑셀로 미리 올려두고 검색만 해서 바로 카드를 만들 수 있게 한다.
+   만들어진 카드는 기존 [카드 편집] 탭의 cards 배열에 그대로 들어가므로, 그 뒤 "이미지로 복사"/
+   "Outlook 메일 준비" 등 기존 기능을 그대로 이어서 쓸 수 있다. */
+const LS_FIELD_CATALOG = 'cardEditor.fieldCatalog.v1';
+let fieldCatalog = JSON.parse(localStorage.getItem(LS_FIELD_CATALOG) || 'null') || { uploadedAt: '', items: [] };
+function persistFieldCatalog(){ localStorage.setItem(LS_FIELD_CATALOG, JSON.stringify(fieldCatalog)); }
+
+document.getElementById('btnPickFieldExcel').onclick = ()=> document.getElementById('fieldExcelFile').click();
+document.getElementById('fieldExcelFile').onchange = (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    try{
+      const wb = XLSX.read(ev.target.result, { type:'binary' });
+      const sheetName = wb.SheetNames.includes('데이터') ? '데이터' : wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+      let headerIdx = rows.findIndex(r => r.some(cell => String(cell).includes('형번')));
+      if(headerIdx === -1) headerIdx = 0;
+      const header = rows[headerIdx];
+      const idxOf = (...names)=> header.findIndex(h=> names.some(n=>String(h).includes(n)));
+      const col = {
+        model: idxOf('형번','모델'),
+        name: idxOf('상품명','품명'),
+        img: idxOf('이미지URL','이미지주소','이미지'),
+        listPrice: idxOf('정가','단가','표준가'),
+        salePrice: idxOf('판매가','할인가'),
+        category: idxOf('카테고리','분류'),
+        delivery: idxOf('납기')
+      };
+      if(col.model < 0){ toast('엑셀에서 "형번" 열을 찾지 못했습니다.'); return; }
+      const dataRows = rows.slice(headerIdx+1).filter(r => r.some(c=>String(c).trim()!==''));
+      const items = dataRows.map(r=>{
+        const list = Number(String(col.listPrice>=0 ? r[col.listPrice] : 0).replace(/[^0-9.]/g,'')) || 0;
+        const saleRaw = col.salePrice>=0 ? String(r[col.salePrice]).replace(/[^0-9.]/g,'') : '';
+        const sale = saleRaw ? Number(saleRaw) : list;
+        return {
+          model: String(r[col.model]).trim(),
+          name: col.name>=0 ? String(r[col.name]).trim() : '',
+          img: col.img>=0 ? String(r[col.img]).trim() : '',
+          listPrice: list,
+          salePrice: sale,
+          category: col.category>=0 ? String(r[col.category]).trim() : '',
+          delivery: col.delivery>=0 ? String(r[col.delivery]).trim() : ''
+        };
+      }).filter(it=>it.model);
+      fieldCatalog = { uploadedAt: new Date().toISOString(), items };
+      persistFieldCatalog();
+      renderFieldCatalogStatus();
+      renderFieldGrid();
+      toast(`상품 데이터 ${items.length}건을 불러왔습니다.`);
+    }catch(err){ toast('엑셀 파일을 읽는 중 오류가 발생했습니다.'); }
+  };
+  reader.readAsBinaryString(f);
+  e.target.value = '';
+};
+
+function renderFieldCatalogStatus(){
+  const el = document.getElementById('fieldExcelStatus');
+  if(!el) return;
+  el.textContent = fieldCatalog.items.length>0
+    ? `${fieldCatalog.items.length}건 업로드됨 (${new Date(fieldCatalog.uploadedAt).toLocaleString('ko-KR')})`
+    : '';
+}
+
+function getVisibleFieldItems(){
+  const q = (document.getElementById('fieldSearch').value || '').trim().toLowerCase();
+  if(!q) return fieldCatalog.items;
+  return fieldCatalog.items.filter(it =>
+    it.model.toLowerCase().includes(q) || it.name.toLowerCase().includes(q));
+}
+
+function renderFieldGrid(){
+  const wrap = document.getElementById('fieldGrid');
+  const countEl = document.getElementById('fieldCount');
+  if(!wrap) return;
+  if(fieldCatalog.items.length===0){
+    wrap.innerHTML = '<div style="color:#9aa0a6;font-size:13px;">아직 업로드된 상품 데이터가 없습니다. 위에서 엑셀 파일을 먼저 올려주세요.</div>';
+    if(countEl) countEl.textContent = '';
+    return;
+  }
+  const visible = getVisibleFieldItems();
+  if(countEl) countEl.textContent = `전체 ${fieldCatalog.items.length}건 중 ${visible.length}건 표시`;
+  if(visible.length===0){ wrap.innerHTML = '<div style="color:#9aa0a6;font-size:13px;">일치하는 상품이 없습니다.</div>'; return; }
+  wrap.innerHTML = visible.slice(0,200).map((it,i)=>`
+    <div class="arch-item" data-i="${i}">
+      ${it.img ? `<img class="thumb" src="${escapeHtml(it.img)}">` : `<div class="thumb-mini-empty" style="width:100%;height:200px;">사진<br>없음</div>`}
+      <div class="meta">
+        <div class="n">${escapeHtml(it.name || it.model)}</div>
+        <div class="d">형번 ${escapeHtml(it.model)}</div>
+        <div class="d">${fmtWon(it.salePrice)}${it.listPrice>it.salePrice ? ` (정가 ${fmtWon(it.listPrice)})` : ''}</div>
+      </div>
+      <div class="btns">
+        <button data-act="makeCard">카드로 만들기</button>
+      </div>
+    </div>`).join('');
+  wrap.querySelectorAll('.arch-item').forEach(el=>{
+    const it = visible[Number(el.dataset.i)];
+    el.querySelector('[data-act="makeCard"]').onclick = ()=>{
+      const nc = defaultCard();
+      nc.name = it.name || nc.name;
+      nc.model = it.model;
+      nc.img = it.img || '';
+      nc.category = it.category || nc.category;
+      nc.delivery = it.delivery ? ('납기 : ' + it.delivery) : nc.delivery;
+      nc.listPrice = it.listPrice;
+      nc.salePrice = it.salePrice;
+      nc.badge = it.listPrice>0 ? Math.max(0, Math.min(100, Math.round((1 - it.salePrice/it.listPrice)*100))) : 0;
+      cards.push(nc); persistCards();
+      document.querySelector('.tab[data-panel="editPanel"]').click();
+      renderGrid();
+      toast('카드 편집 화면에 카드를 추가했습니다. 필요하면 "형번 검색"으로 상품 링크도 채워보세요.');
+    };
+  });
+}
+document.getElementById('fieldSearch').oninput = renderFieldGrid;
+renderFieldCatalogStatus();
 
 /* ===================== 형번 검색 → 시리즈코드 자동 링크 =====================
    전체 형번(약 179만개)을 한 번에 불러오면 너무 커서, 형번 앞 2글자 기준으로 잘게 쪼갠
