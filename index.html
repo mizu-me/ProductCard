@@ -1293,22 +1293,26 @@ function badgeTagHtml(c){
   if(!(c.badge > 0)) return '&nbsp;';
   return `<table role="presentation" cellpadding="0" cellspacing="0" align="right"><tr>
     <td bgcolor="#f6c445" style="padding:6px 14px;white-space:nowrap;">
-      <span style="font-family:'Malgun Gothic',Arial,sans-serif;font-size:13px;font-weight:800;color:#1a2233;">${c.badge}% 할인</span>
+      <font face="Malgun Gothic" color="#1a2233" size="2"><b>${c.badge}% 할인</b></font>
     </td>
   </tr></table>`;
 }
 /* 카드 HTML(이미지로 복사 / 코드 생성 둘 다 이 함수를 씀) - 화면의 카드 편집(.p-card 각 부분)과
-   똑같은 글자 크기·굵기·색으로 보이도록 만든다.
+   최대한 똑같은 글자 크기·굵기·색으로 보이도록 만든다.
 
-   지난 수정에서 <font face=".."><span style="font-size:...">글자</span></font> 식으로 span을
-   font 안에 한 겹 더 감쌌었는데, Outlook(워드 렌더링 엔진)이 클립보드 붙여넣기를 처리할 때 이렇게
-   중첩된 태그를 제대로 못 살리고(특히 <br>로 이어진 여러 줄 사이에서 스타일이 뒤섞이거나 사라짐),
-   그 결과 정가가 오히려 크게/진하게 보이고 판매가가 작게 보이는 등 화면과 정반대로 나오는 문제가 생겼다.
-   지금은 태그를 한 겹으로 줄이고, 줄마다 <div style="...">를 따로 써서 각 줄이 서로 다른 문단으로
-   확실히 분리되게 했다(한 태그 안에 font-family/font-size/font-weight/color를 전부 한번에 지정).
-   이 방식이 Outlook에 붙여넣었을 때 편집 화면과 가장 가깝게, 그리고 항상 같은 결과로 나온다. */
+   [중요] Outlook(워드 렌더링 엔진)은 붙여넣기 방식이 "원본 서식 유지"가 아니라 "서식 병합"으로
+   되어 있으면 font-size(px)/font-weight:800/text-decoration 같은 순수 CSS 속성을 조용히
+   무시하거나 굵기만 남기고 색·크기를 지워버린다. 반면 <font face/color/size>와 <b>, <s> 같은
+   레거시 태그는 "서식 병합" 모드에서도 훨씬 안정적으로 살아남는다(Word 자체 문단 서식으로
+   직접 매핑되기 때문). 그래서 순수 style 속성 대신 레거시 태그를 쓰고, 줄마다 <div> 하나로만
+   감싸서(<br>로 여러 span을 이어붙이지 않음) 이전에 있었던 "스타일이 다음 줄로 번지는" 문제도
+   같이 피한다. 그래도 여전히 Outlook 화면에서 이상하게 보인다면, 이는 코드 문제가 아니라
+   Outlook의 "다른 프로그램에서 붙여넣기" 기본 옵션이 "서식 병합"으로 설정되어 있어서일 가능성이
+   매우 높다 - 이 경우 파일 > 옵션 > 메일 > 편집기 옵션 > 고급 > 잘라내기/복사/붙여넣기에서
+   "다른 프로그램에서 붙여넣기" 항목을 "원본 서식 유지"로 바꾸거나, 붙여넣기 직후 나타나는
+   클립보드 아이콘에서 "원본 서식 유지"를 선택하면 된다. */
 function cardHtml(c){
-  const FONT = "'Malgun Gothic',Arial,sans-serif";
+  const FONT = "'Malgun Gothic', Malgun Gothic";
   // c.img가 비어있을 때 예전엔 <img src=""> 를 그대로 내보내서, Outlook에서 "깨진 이미지"가 아니라
   // 아무것도 없는 빈 여백으로만 보였다(이미지 없이 만든 카드 - 예: 내근영업에서 만든 카드는 아직
   // 이미지 매니페스트가 없어 비어있는 경우 - 를 그대로 복사하면 이 빈 칸이 나온 것). 편집 화면(.imgbox)처럼
@@ -1321,20 +1325,20 @@ function cardHtml(c){
 <tr>
   <td bgcolor="#163a7a" style="padding:10px 14px;">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
-      <td align="left" valign="middle"><span style="font-family:${FONT};color:#ffffff;font-size:13px;font-weight:800;letter-spacing:1px;">MISUMI</span></td>
+      <td align="left" valign="middle"><font face="Malgun Gothic" color="#ffffff" size="2"><b>MISUMI</b></font></td>
       <td align="right" valign="middle">${badgeTagHtml(c)}</td>
     </tr></table>
   </td>
 </tr>
 <tr><td bgcolor="#ffffff" align="center" style="padding:10px;">${imgCell}</td></tr>
 <tr><td style="padding:11px 14px;">
-  <div style="font-family:${FONT};font-size:11px;font-weight:800;color:#0A4FA3;">&nbsp;${c.category || ''}&nbsp;</div>
-  <div style="font-family:${FONT};font-size:14.5px;font-weight:800;color:#1a1a1a;margin-top:8px;">${c.name}</div>
-  <div style="font-family:${FONT};font-size:12px;color:#444444;margin-top:4px;">형번 : ${c.model}</div>
-  <div style="font-family:${FONT};font-size:12px;color:#444444;">${c.delivery}</div>
-  <div style="font-family:${FONT};font-size:12px;color:#999999;text-decoration:line-through;margin-top:6px;">${fmtWon(c.listPrice)}</div>
-  <div style="font-family:${FONT};font-size:18px;font-weight:800;color:#c0122e;">${fmtWon(c.salePrice)}</div>
-  ${c.validUntil ? `<div style="font-family:${FONT};font-size:12px;color:#d97706;margin-top:2px;">가격 유효기간: ${c.validUntil}</div>` : ''}
+  <div>&nbsp;<font face="Malgun Gothic" color="#0A4FA3" size="1"><b>${c.category || ''}</b></font>&nbsp;</div>
+  <div style="margin-top:8px;"><font face="Malgun Gothic" color="#1a1a1a" size="3"><b>${c.name}</b></font></div>
+  <div style="margin-top:4px;"><font face="Malgun Gothic" color="#444444" size="2">형번 : ${c.model}</font></div>
+  <div><font face="Malgun Gothic" color="#444444" size="2">${c.delivery}</font></div>
+  <div style="margin-top:6px;"><font face="Malgun Gothic" color="#999999" size="2"><s>${fmtWon(c.listPrice)}</s></font></div>
+  <div><font face="Malgun Gothic" color="#c0122e" size="5"><b>${fmtWon(c.salePrice)}</b></font></div>
+  ${c.validUntil ? `<div style="margin-top:2px;"><font face="Malgun Gothic" color="#d97706" size="2">가격 유효기간: ${c.validUntil}</font></div>` : ''}
 </td></tr>
 </table>`;
 }
