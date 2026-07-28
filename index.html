@@ -208,8 +208,12 @@
     <div class="share-actions">
       <button class="btn" id="btnPickIndoorExcel">엑셀 파일 선택 (.xlsm/.xlsx)</button>
       <input type="file" id="indoorExcelFile" accept=".xlsm,.xlsx,.xls">
-      <select id="indoorSheetSelect" style="display:none;padding:8px 10px;border-radius:8px;border:1px solid var(--gray-line);font-size:12.5px;"></select>
       <span id="indoorExcelStatus" style="font-size:12px;color:var(--text-sub);align-self:center;"></span>
+    </div>
+    <div id="indoorSheetPickWrap" style="display:none;margin-top:10px;gap:14px;flex-wrap:wrap;align-items:center;">
+      <span style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-sub);">작업목록 시트 <select id="indoorItemSheetSelect" style="padding:7px 8px;border-radius:8px;border:1px solid var(--gray-line);font-size:12.5px;"></select></span>
+      <span style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-sub);">메일주소 시트 <select id="indoorMailSheetSelect" style="padding:7px 8px;border-radius:8px;border:1px solid var(--gray-line);font-size:12.5px;"></select></span>
+      <span style="font-size:11.5px;color:var(--text-sub);">※ 자동으로 골랐습니다. 두 시트가 화면에 함께 합쳐져 표시되니, 잘못 골랐을 때만 바꿔주세요.</span>
     </div>
   </div>
   <div style="margin:14px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -218,9 +222,11 @@
       <option value="daysDesc">경과일 많은 순 (급한 것 먼저)</option>
       <option value="daysAsc">경과일 적은 순</option>
       <option value="customer">고객사명순</option>
+      <option value="manager">담당내근순</option>
     </select>
     <span style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-sub);">
-      경과일 <input id="indoorMinDays" type="number" min="0" placeholder="예: 10" style="width:64px;padding:7px 8px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;"> 일 이상만
+      경과일 <input id="indoorMinDays" type="number" min="0" placeholder="예: 5" style="width:60px;padding:7px 8px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;"> 일 이상 ~
+      <input id="indoorMaxDays" type="number" min="0" placeholder="예: 10" style="width:60px;padding:7px 8px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;"> 일 미만
     </span>
     <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-sub);cursor:pointer;">
       <input type="checkbox" id="indoorShowCompleted">구매완료 항목도 보기
@@ -1492,9 +1498,16 @@ function parseIndoorMailSheet(wb, sheetName){
   return { ok:true, map };
 }
 
-function loadIndoorSheet(wb, sheetName){
-  const res = parseIndoorSheet(wb, sheetName);
-  if(!res.ok){ toast('선택한 시트에서 "고객사명"/"형번" 열을 찾지 못했습니다.'); return; }
+/* 작업목록 시트 + 메일주소 시트, 두 선택을 항상 같이 읽어서 하나로 합친 뒤 다시 그린다.
+   (시트를 하나씩 번갈아 골라 두 번 보는 게 아니라, 고른 즉시 한 화면에 합쳐서 보여주기 위함) */
+function refreshIndoorMerged(){
+  if(!indoorWorkbook) return;
+  const itemSheet = document.getElementById('indoorItemSheetSelect').value;
+  const mailSheet = document.getElementById('indoorMailSheetSelect').value;
+  const res = parseIndoorSheet(indoorWorkbook, itemSheet);
+  if(!res.ok){ toast('작업목록 시트에서 "고객사명"/"형번" 열을 찾지 못했습니다. 다른 시트를 골라보세요.'); return; }
+  const mres = mailSheet ? parseIndoorMailSheet(indoorWorkbook, mailSheet) : { ok:false, map:{} };
+  indoorMailMap = mres.ok ? mres.map : {};
   const mailCount = Object.keys(indoorMailMap).length;
   const items = res.items.map(it=>{
     const info = indoorMailMap[it.customer] || {};
@@ -1509,7 +1522,7 @@ function loadIndoorSheet(wb, sheetName){
   persistIndoorCatalog();
   renderIndoorCatalogStatus();
   renderIndoorGrid();
-  toast(`내근영업 목록 ${items.length}건을 불러왔습니다.` + (mailCount ? ` (메일주소 ${mailCount}건 매칭)` : ''));
+  toast(`내근영업 목록 ${items.length}건을 불러왔습니다.` + (mailCount ? ` (메일주소 ${mailCount}건 매칭)` : ' (메일주소 시트를 찾지 못해 담당내근/이메일은 비어있습니다)'));
 }
 
 document.getElementById('btnPickIndoorExcel').onclick = ()=> document.getElementById('indoorExcelFile').click();
@@ -1520,22 +1533,22 @@ document.getElementById('indoorExcelFile').onchange = (e)=>{
     try{
       const wb = XLSX.read(ev.target.result, { type:'binary' });
       indoorWorkbook = wb;
-      const mailSheetName = wb.SheetNames.find(n=>n.includes('메일주소')) || wb.SheetNames.find(n=>n.includes('메일')) || wb.SheetNames.find(n=>n.includes('발송'));
-      indoorMailMap = mailSheetName ? (parseIndoorMailSheet(wb, mailSheetName).map || {}) : {};
-      const sel = document.getElementById('indoorSheetSelect');
-      sel.innerHTML = wb.SheetNames.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
-      sel.style.display = wb.SheetNames.length>1 ? 'inline-block' : 'none';
-      const preferred = wb.SheetNames.find(n=>n.includes('SQL결과')) || wb.SheetNames.find(n=>n.includes('결과')) || wb.SheetNames[0];
-      sel.value = preferred;
-      loadIndoorSheet(wb, preferred);
+      const itemSel = document.getElementById('indoorItemSheetSelect');
+      const mailSel = document.getElementById('indoorMailSheetSelect');
+      const opts = wb.SheetNames.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+      itemSel.innerHTML = opts;
+      mailSel.innerHTML = `<option value="">(없음)</option>` + opts;
+      itemSel.value = wb.SheetNames.find(n=>n.includes('SQL결과')) || wb.SheetNames.find(n=>n.includes('결과')) || wb.SheetNames[0];
+      mailSel.value = wb.SheetNames.find(n=>n.includes('메일주소')) || wb.SheetNames.find(n=>n.includes('메일')) || wb.SheetNames.find(n=>n.includes('발송')) || '';
+      document.getElementById('indoorSheetPickWrap').style.display = 'flex';
+      refreshIndoorMerged();
     }catch(err){ toast('엑셀 파일을 읽는 중 오류가 발생했습니다.'); }
   };
   reader.readAsBinaryString(f);
   e.target.value = '';
 };
-document.getElementById('indoorSheetSelect').onchange = (e)=>{
-  if(indoorWorkbook) loadIndoorSheet(indoorWorkbook, e.target.value);
-};
+document.getElementById('indoorItemSheetSelect').onchange = refreshIndoorMerged;
+document.getElementById('indoorMailSheetSelect').onchange = refreshIndoorMerged;
 
 function renderIndoorCatalogStatus(){
   const el = document.getElementById('indoorExcelStatus');
@@ -1548,17 +1561,21 @@ function renderIndoorCatalogStatus(){
 function getVisibleIndoorItems(){
   const q = (document.getElementById('indoorSearch').value || '').trim().toLowerCase();
   const showCompleted = document.getElementById('indoorShowCompleted').checked;
-  const minDaysRaw = document.getElementById('indoorMinDays').value;
-  const minDays = minDaysRaw !== '' ? Number(minDaysRaw) : null;
+  const minRaw = document.getElementById('indoorMinDays').value;
+  const maxRaw = document.getElementById('indoorMaxDays').value;
+  const minDays = minRaw !== '' && !isNaN(Number(minRaw)) ? Number(minRaw) : null;   // 이 값 "이상"
+  const maxDays = maxRaw !== '' && !isNaN(Number(maxRaw)) ? Number(maxRaw) : null;   // 이 값 "미만"
   let list = indoorCatalog.items.filter(it=>{
     if(!showCompleted && it.status && it.status.includes('완료')) return false;
-    if(minDays !== null && !isNaN(minDays) && (it.days === null || it.days < minDays)) return false;
+    if(minDays !== null && (it.days === null || it.days < minDays)) return false;
+    if(maxDays !== null && (it.days === null || it.days >= maxDays)) return false;
     if(q && !(it.customer.toLowerCase().includes(q) || it.model.toLowerCase().includes(q))) return false;
     return true;
   });
   const sort = document.getElementById('indoorSort').value;
   list = list.slice().sort((a,b)=>{
     if(sort==='customer') return a.customer.localeCompare(b.customer, 'ko');
+    if(sort==='manager') return (a.manager||'').localeCompare(b.manager||'', 'ko') || a.customer.localeCompare(b.customer, 'ko');
     const da = a.days ?? -Infinity, db = b.days ?? -Infinity;
     return sort==='daysAsc' ? da - db : db - da;
   });
@@ -1611,6 +1628,7 @@ function renderIndoorGrid(){
 document.getElementById('indoorSearch').oninput = renderIndoorGrid;
 document.getElementById('indoorSort').onchange = renderIndoorGrid;
 document.getElementById('indoorMinDays').oninput = renderIndoorGrid;
+document.getElementById('indoorMaxDays').oninput = renderIndoorGrid;
 document.getElementById('indoorShowCompleted').onchange = renderIndoorGrid;
 renderIndoorCatalogStatus();
 
