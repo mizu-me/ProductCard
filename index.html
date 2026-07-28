@@ -1254,18 +1254,20 @@ function badgeTagHtml(c){
   if(!(c.badge > 0)) return '&nbsp;';
   return `<table role="presentation" cellpadding="0" cellspacing="0" align="right"><tr>
     <td bgcolor="#f6c445" style="padding:6px 14px;white-space:nowrap;">
-      <font face="Malgun Gothic" color="#1a2233"><span style="font-size:13px;font-weight:800;"><b>${c.badge}% 할인</b></span></font>
+      <span style="font-family:'Malgun Gothic',Arial,sans-serif;font-size:13px;font-weight:800;color:#1a2233;">${c.badge}% 할인</span>
     </td>
   </tr></table>`;
 }
 /* 카드 HTML(이미지로 복사 / 코드 생성 둘 다 이 함수를 씀) - 화면의 카드 편집(.p-card 각 부분)과
    똑같은 글자 크기·굵기·색으로 보이도록 만든다.
-   예전엔 옛날 방식 <font size="1~7"> 상대 크기만 썼는데, 이건 브라우저에서 볼 땐 그럭저럭 비슷해 보여도
-   Outlook(워드 렌더링 엔진)이 클립보드 붙여넣기를 처리할 때는 정확한 크기로 존중되지 않아서(특히 판매가에 쓰던
-   size="5"는 실제로 훨씬 크게 나옴), 정가·판매가 글자 크기가 편집 화면과 다르게 보이고 두 가격이 잘 구분되지
-   않는 문제가 있었다. 지금은 각 글자에 실제 px 단위 font-size를 style로 직접 지정해서(레거시 size 속성은 뺌),
-   Outlook에 붙여넣어도 편집 화면과 동일한 크기로 나온다. 취소선도 <s> 태그와 CSS text-decoration을 같이 써서
-   어떤 메일 클라이언트에서도 확실히 표시되게 했다. */
+
+   지난 수정에서 <font face=".."><span style="font-size:...">글자</span></font> 식으로 span을
+   font 안에 한 겹 더 감쌌었는데, Outlook(워드 렌더링 엔진)이 클립보드 붙여넣기를 처리할 때 이렇게
+   중첩된 태그를 제대로 못 살리고(특히 <br>로 이어진 여러 줄 사이에서 스타일이 뒤섞이거나 사라짐),
+   그 결과 정가가 오히려 크게/진하게 보이고 판매가가 작게 보이는 등 화면과 정반대로 나오는 문제가 생겼다.
+   지금은 태그를 한 겹으로 줄이고, 줄마다 <div style="...">를 따로 써서 각 줄이 서로 다른 문단으로
+   확실히 분리되게 했다(한 태그 안에 font-family/font-size/font-weight/color를 전부 한번에 지정).
+   이 방식이 Outlook에 붙여넣었을 때 편집 화면과 가장 가깝게, 그리고 항상 같은 결과로 나온다. */
 function cardHtml(c){
   const FONT = "'Malgun Gothic',Arial,sans-serif";
   const imgTag = `<img src="${c.img || ''}" width="230" style="display:block;border:0;">`;
@@ -1274,20 +1276,20 @@ function cardHtml(c){
 <tr>
   <td bgcolor="#163a7a" style="padding:10px 14px;">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
-      <td align="left" valign="middle"><font face="Malgun Gothic" color="#ffffff"><span style="font-size:13px;font-weight:800;letter-spacing:1px;"><b>MISUMI</b></span></font></td>
+      <td align="left" valign="middle"><span style="font-family:${FONT};color:#ffffff;font-size:13px;font-weight:800;letter-spacing:1px;">MISUMI</span></td>
       <td align="right" valign="middle">${badgeTagHtml(c)}</td>
     </tr></table>
   </td>
 </tr>
 <tr><td bgcolor="#ffffff" align="center" style="padding:10px;">${imgCell}</td></tr>
 <tr><td style="padding:11px 14px;">
-  <font face="${FONT}" color="#0A4FA3"><span style="font-size:11px;font-weight:800;"><b>&nbsp;${c.category || ''}&nbsp;</b></span></font><br>
-  <font face="${FONT}" color="#1a1a1a"><span style="font-size:14.5px;font-weight:800;"><b>${c.name}</b></span></font><br>
-  <font face="${FONT}" color="#444444"><span style="font-size:12px;">형번 : ${c.model}</span></font><br>
-  <font face="${FONT}" color="#444444"><span style="font-size:12px;">${c.delivery}</span></font><br>
-  <font face="${FONT}" color="#999999"><span style="font-size:12px;text-decoration:line-through;"><s>${fmtWon(c.listPrice)}</s></span></font><br>
-  <font face="${FONT}" color="#c0122e"><span style="font-size:18px;font-weight:800;"><b>${fmtWon(c.salePrice)}</b></span></font>
-  ${c.validUntil ? `<br><font face="${FONT}" color="#d97706"><span style="font-size:12px;">가격 유효기간: ${c.validUntil}</span></font>` : ''}
+  <div style="font-family:${FONT};font-size:11px;font-weight:800;color:#0A4FA3;">&nbsp;${c.category || ''}&nbsp;</div>
+  <div style="font-family:${FONT};font-size:14.5px;font-weight:800;color:#1a1a1a;margin-top:8px;">${c.name}</div>
+  <div style="font-family:${FONT};font-size:12px;color:#444444;margin-top:4px;">형번 : ${c.model}</div>
+  <div style="font-family:${FONT};font-size:12px;color:#444444;">${c.delivery}</div>
+  <div style="font-family:${FONT};font-size:12px;color:#999999;text-decoration:line-through;margin-top:6px;">${fmtWon(c.listPrice)}</div>
+  <div style="font-family:${FONT};font-size:18px;font-weight:800;color:#c0122e;">${fmtWon(c.salePrice)}</div>
+  ${c.validUntil ? `<div style="font-family:${FONT};font-size:12px;color:#d97706;margin-top:2px;">가격 유효기간: ${c.validUntil}</div>` : ''}
 </td></tr>
 </table>`;
 }
