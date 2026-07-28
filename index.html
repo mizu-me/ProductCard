@@ -232,6 +232,11 @@
     <select id="indoorManagerFilter" style="padding:9px 10px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
       <option value="">담당내근 (전체)</option>
     </select>
+    <select id="indoorSendFilter" style="padding:9px 10px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
+      <option value="">발송가부 (전체)</option>
+      <option value="ok">발송가능만</option>
+      <option value="no">발송불가만</option>
+    </select>
     <span style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-sub);">
       경과일 <input id="indoorMinDays" type="number" min="0" placeholder="예: 5" style="width:60px;padding:7px 8px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;"> 일 이상 ~
       <input id="indoorMaxDays" type="number" min="0" placeholder="예: 10" style="width:60px;padding:7px 8px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;"> 일 미만
@@ -244,6 +249,7 @@
   <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
     <span id="indoorSelCount" style="font-size:12.5px;color:var(--text-sub);">선택 0건</span>
     <button class="btn primary" id="btnIndoorMakeCards">선택한 항목으로 카드 만들기</button>
+    <button class="btn" id="btnIndoorQuote">견적</button>
     <button class="btn" id="btnIndoorResetAllDone" style="color:var(--red);border-color:#f2c7cc;">카드생성 표시 전체 초기화</button>
     <span style="font-size:11.5px;color:var(--text-sub);">형번·상품 링크(시리즈코드 자동 조회)·고객사명·이메일·담당내근이 카드 편집으로 함께 채워집니다.</span>
   </div>
@@ -1632,6 +1638,16 @@ function renderIndoorCatalogStatus(){
     : '';
 }
 
+// 발송가부 값은 엑셀마다 "가능"/"불가", "발송가능"/"발송불가", "Y"/"N" 등 표기가 다를 수 있어
+// 문자열을 보고 대략 분류한다. "불가능"처럼 "가능"이 부분 포함된 값도 있어서, 부정 표현(불가)을 먼저 검사한다.
+function indoorSendClass(v){
+  const s = String(v||'').trim();
+  if(!s) return '';
+  if(s.includes('불가') || /^n(o)?$/i.test(s) || s==='아니오' || s==='0') return 'no';
+  if(s.includes('가능') || /^y(es)?$/i.test(s) || s==='예' || s==='1') return 'ok';
+  return '';
+}
+
 function getVisibleIndoorItems(){
   const q = (document.getElementById('indoorSearch').value || '').trim().toLowerCase();
   const showCompleted = document.getElementById('indoorShowCompleted').checked;
@@ -1640,11 +1656,13 @@ function getVisibleIndoorItems(){
   const minDays = minRaw !== '' && !isNaN(Number(minRaw)) ? Number(minRaw) : null;   // 이 값 "이상"
   const maxDays = maxRaw !== '' && !isNaN(Number(maxRaw)) ? Number(maxRaw) : null;   // 이 값 "미만"
   const managerFilter = document.getElementById('indoorManagerFilter').value;
+  const sendFilter = document.getElementById('indoorSendFilter').value;
   let list = indoorCatalog.items.filter(it=>{
     if(!showCompleted && it.status && it.status.includes('완료')) return false;
     if(minDays !== null && (it.days === null || it.days < minDays)) return false;
     if(maxDays !== null && (it.days === null || it.days >= maxDays)) return false;
     if(managerFilter && it.manager !== managerFilter) return false;
+    if(sendFilter && indoorSendClass(it.sendYn) !== sendFilter) return false;
     if(q && !(it.customer.toLowerCase().includes(q) || it.model.toLowerCase().includes(q) || (it.productName||'').toLowerCase().includes(q))) return false;
     return true;
   });
@@ -1743,6 +1761,7 @@ document.getElementById('indoorMinDays').oninput = renderIndoorGrid;
 document.getElementById('indoorMaxDays').oninput = renderIndoorGrid;
 document.getElementById('indoorShowCompleted').onchange = renderIndoorGrid;
 document.getElementById('indoorManagerFilter').onchange = renderIndoorGrid;
+document.getElementById('indoorSendFilter').onchange = renderIndoorGrid;
 renderIndoorCatalogStatus();
 populateIndoorManagerFilter();
 
@@ -1808,6 +1827,56 @@ document.getElementById('btnIndoorMakeCards').onclick = async ()=>{
   else if(distinctCustomers.length>1) msg += ' 여러 고객사가 섞여 있어 상단 고객사명은 채우지 않았습니다 - 카드별로 직접 확인하세요.';
   if(distinctManagers.length===1) msg += ` (담당자란에 담당내근 "${distinctManagers[0]}" 자동 채움)`;
   toast(msg);
+};
+
+/* 선택한 항목들을 견적 확인용 텍스트로 정리 - 견적을 먼저 넣어야 하는 형번들을 고객사 단위로 묶어서
+   "고객번호 / 고객사명 / 형번 : X / 수량 N개" 형태로 만들어 복사해 쓸 수 있게 한다.
+   같은 고객사에서 같은 형번을 여러 줄 체크했으면 줄 수만큼 수량으로 합쳐서 보여준다. */
+function buildIndoorQuoteText(items){
+  const byCustomer = new Map(); // key: 고객번호::고객사명 -> { customerNo, customer, models: Map(형번->수량) }
+  items.forEach(it=>{
+    const key = (it.customerNo || '') + '::' + (it.customer || '');
+    if(!byCustomer.has(key)){
+      byCustomer.set(key, { customerNo: it.customerNo || '', customer: it.customer || '', models: new Map() });
+    }
+    const g = byCustomer.get(key);
+    g.models.set(it.model, (g.models.get(it.model) || 0) + 1);
+  });
+  const blocks = [...byCustomer.values()].map(g=>{
+    const lines = [g.customerNo || '(고객번호 없음)', g.customer || '(고객사명 없음)'];
+    [...g.models.entries()].forEach(([model, count])=>{
+      lines.push(`형번 : ${model} / 수량 ${count}개`);
+    });
+    return lines.join('\n');
+  });
+  return blocks.join('\n\n');
+}
+
+function openIndoorQuoteModal(items){
+  const overlay = document.getElementById('modalOverlay');
+  const text = buildIndoorQuoteText(items);
+  overlay.innerHTML = `<div class="modal-box">
+    <h3>견적 확인용 텍스트</h3>
+    <p>아래 내용을 복사해서 견적 작업에 활용하세요. 필요하면 붙여넣기 전에 직접 고쳐도 됩니다.</p>
+    <textarea id="indoorQuoteText" style="width:100%;height:240px;padding:12px;border:1px solid var(--gray-line);border-radius:8px;font-size:13px;font-family:monospace;white-space:pre;">${escapeHtml(text)}</textarea>
+    <div class="modal-actions">
+      <button class="btn primary" id="btnCopyIndoorQuote">복사</button>
+      <button class="btn" id="modalCancel">닫기</button>
+    </div>
+  </div>`;
+  overlay.style.display = 'flex';
+  overlay.querySelector('#btnCopyIndoorQuote').onclick = ()=>{
+    const ta = overlay.querySelector('#indoorQuoteText');
+    navigator.clipboard.writeText(ta.value);
+    toast('견적 텍스트가 복사되었습니다.');
+  };
+  overlay.querySelector('#modalCancel').onclick = ()=>{ overlay.style.display='none'; overlay.innerHTML=''; };
+}
+
+document.getElementById('btnIndoorQuote').onclick = ()=>{
+  const selectedItems = indoorCatalog.items.filter(it=> indoorSelected.has(it.rowId));
+  if(selectedItems.length===0){ toast('먼저 표에서 견적이 필요한 항목을 체크하세요.'); return; }
+  openIndoorQuoteModal(selectedItems);
 };
 
 /* ===================== 형번 검색 → 시리즈코드 자동 링크 =====================
