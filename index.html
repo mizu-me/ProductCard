@@ -86,6 +86,11 @@
   .log-table .customer{ font-weight:800; color:var(--navy); }
   .log-table .items{ color:#444; white-space:pre-line; }
   .log-table .rowbtn{ padding:4px 8px; border-radius:6px; border:1px solid var(--gray-line); background:#fff; font-size:11px; font-weight:700; cursor:pointer; color:var(--red); }
+  .indoor-table thead th{ position:sticky; top:0; background:#fff; z-index:1; }
+  .indoor-table tbody tr:nth-child(even) td{ background:#fafbfc; }
+  .indoor-table td.ellip{ max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .indoor-table .sub{ display:block; font-size:11px; color:var(--text-sub); font-weight:400; }
+  .indoor-table .doneLink{ background:none; border:none; color:#2e7d32; font-weight:700; font-size:11.5px; cursor:pointer; padding:0; }
 
   /* 보관함 - 카드형(보조) */
   .arch-grid{ display:flex; gap:16px; flex-wrap:wrap; }
@@ -198,7 +203,7 @@
 <div class="panel" id="indoorPanel">
   <div class="hint">
     사무실(내근) 업무용 탭입니다. 캠페인관리 매크로 엑셀(<b>미구매고객_캠페인관리_V1.xlsm</b>) 파일을 그대로 올리면
-    <b>고객사명·형번·CAD/QT 구분·경과일·구매상태</b>를 뽑아서 오늘 처리할 목록으로 보여주고,
+    <b>고객사명·형번·상품명·CAD/QT 구분·경과일·구매상태</b>를 뽑아서 오늘 처리할 목록으로 보여주고,
     같은 파일 안의 <b>메일주소모음 시트</b>에서 <b>고객번호·담당내근·이메일주소·발송가부</b>도 찾아 자동으로 붙여줍니다.
     업로드한 파일은 이 브라우저 안에서만 읽고 표시할 뿐, 깃허브나 다른 어떤 서버에도 올라가지 않습니다 (고객 정보가 포함된 엑셀이라도 안전합니다).<br>
     나중에 엑셀을 갱신했으면 같은 버튼으로 최신 파일을 다시 올리기만 하면 목록 전체가 새로 교체됩니다 - 별도 설정은 필요 없습니다.
@@ -224,6 +229,9 @@
       <option value="customer">고객사명순</option>
       <option value="manager">담당내근순</option>
     </select>
+    <select id="indoorManagerFilter" style="padding:9px 10px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
+      <option value="">담당내근 (전체)</option>
+    </select>
     <span style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-sub);">
       경과일 <input id="indoorMinDays" type="number" min="0" placeholder="예: 5" style="width:60px;padding:7px 8px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;"> 일 이상 ~
       <input id="indoorMaxDays" type="number" min="0" placeholder="예: 10" style="width:60px;padding:7px 8px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;"> 일 미만
@@ -236,9 +244,10 @@
   <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
     <span id="indoorSelCount" style="font-size:12.5px;color:var(--text-sub);">선택 0건</span>
     <button class="btn primary" id="btnIndoorMakeCards">선택한 항목으로 카드 만들기</button>
-    <span style="font-size:11.5px;color:var(--text-sub);">형번·상품 링크(시리즈코드 자동 조회)·고객사명·이메일이 카드 편집으로 함께 채워집니다.</span>
+    <button class="btn" id="btnIndoorResetAllDone" style="color:var(--red);border-color:#f2c7cc;">카드생성 표시 전체 초기화</button>
+    <span style="font-size:11.5px;color:var(--text-sub);">형번·상품 링크(시리즈코드 자동 조회)·고객사명·이메일·담당내근이 카드 편집으로 함께 채워집니다.</span>
   </div>
-  <div id="indoorWrap"></div>
+  <div id="indoorWrap" style="max-height:560px;overflow:auto;border:1px solid var(--gray-line);border-radius:8px;"></div>
 </div>
 
 <div class="panel" id="codePanel">
@@ -1435,6 +1444,9 @@ renderFieldCatalogStatus();
    절대 전송되지 않는다 - 화면에는 아래 4개 값만 뽑아서 보여준다. */
 const LS_INDOOR_CATALOG = 'cardEditor.indoorCatalog.v1';
 let indoorCatalog = JSON.parse(localStorage.getItem(LS_INDOOR_CATALOG) || 'null') || { uploadedAt: '', items: [] };
+// 예전 버전에서 저장된 데이터에는 rowId가 없을 수 있으니, 없으면 지금 채워준다
+// (rowId 없이 체크박스를 그리면 여러 줄이 같은 식별자를 공유해서 다시 "선택한 것보다 더 많은 카드 생성" 버그가 날 수 있다).
+indoorCatalog.items.forEach((it,i)=>{ if(!it.rowId) it.rowId = 'r' + i; });
 function persistIndoorCatalog(){ localStorage.setItem(LS_INDOOR_CATALOG, JSON.stringify(indoorCatalog)); }
 
 let indoorWorkbook = null; // 시트 재선택 시 다시 파일을 읽지 않도록 캐시
@@ -1458,6 +1470,7 @@ function parseIndoorSheet(wb, sheetName){
     customer: idxOf('고객사명','고객명','거래처명','고객사'),
     customerNo: idxOf('고객번호','고객코드'),
     model: idxOf('형번','모델'),
+    productName: idxOf('상품명','품명','제품명'),
     kind: idxOf('구분','유형','CAD/QT','CADQT','요청구분','문의구분'),
     status: idxOf('구매상태','구매여부','진행상태','상태'),
     days: idxOf('경과일수','경과일','D-DAY','D-day'),
@@ -1483,6 +1496,7 @@ function parseIndoorSheet(wb, sheetName){
       customer: col.customer>=0 ? String(r[col.customer]).trim() : '',
       customerNo: col.customerNo>=0 ? String(r[col.customerNo]).trim() : '',
       model: col.model>=0 ? String(r[col.model]).trim() : '',
+      productName: col.productName>=0 ? String(r[col.productName]).trim() : '',
       kind: col.kind>=0 ? String(r[col.kind]).trim() : '',
       status: col.status>=0 ? String(r[col.status]).trim() : '',
       days
@@ -1539,12 +1553,17 @@ function refreshIndoorMerged(){
   const byName = mres.ok ? mres.byName : {};
   indoorMailMap = byNo;
   let matchedByNo = 0, matchedByName = 0;
-  const items = res.items.map(it=>{
+  const items = res.items.map((it,i)=>{
     let info = it.customerNo && byNo[it.customerNo] ? byNo[it.customerNo] : null;
     if(info) matchedByNo++;
     else if(it.customer && byName[it.customer]){ info = byName[it.customer]; matchedByName++; }
     info = info || {};
     return Object.assign({}, it, {
+      // rowId는 매 업로드/시트변경마다 새로 매기는 "화면상의 이 줄" 식별자다(체크박스 선택용).
+      // 같은 고객+형번이 여러 줄로 중복돼 있어도(예: CAD요청/QT요청이 별도 줄인 경우) 줄 단위로 정확히 구분하기 위함
+      // - 예전에는 고객번호+형번(=indoorKey)으로 선택을 저장해서, 중복된 줄이 있으면 2개만 체크해도 그 줄들과
+      // 같은 키를 가진 다른 줄까지 같이 카드가 만들어지는 문제(2개 선택 → 4개 카드 생성)가 있었다.
+      rowId: 'r' + i,
       customerNo: it.customerNo || info.customerNo || '',
       manager: info.manager || '',
       email: info.email || '',
@@ -1552,13 +1571,24 @@ function refreshIndoorMerged(){
     });
   });
   indoorCatalog = { uploadedAt: new Date().toISOString(), items };
+  indoorSelected.clear(); // rowId가 매번 새로 매겨지므로, 이전 선택은 의미가 없어져 비운다
   persistIndoorCatalog();
   renderIndoorCatalogStatus();
+  populateIndoorManagerFilter();
   renderIndoorGrid();
   const matchNote = (matchedByNo || matchedByName)
     ? ` (고객번호로 ${matchedByNo}건, 고객사명으로 ${matchedByName}건 매칭)`
     : ' (메일주소 시트를 찾지 못했거나 매칭되지 않아 담당내근/이메일은 비어있습니다)';
   toast(`내근영업 목록 ${items.length}건을 불러왔습니다.` + matchNote);
+}
+
+function populateIndoorManagerFilter(){
+  const sel = document.getElementById('indoorManagerFilter');
+  if(!sel) return;
+  const prev = sel.value;
+  const managers = [...new Set(indoorCatalog.items.map(it=>it.manager).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
+  sel.innerHTML = `<option value="">담당내근 (전체)</option>` + managers.map(m=>`<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
+  sel.value = managers.includes(prev) ? prev : '';
 }
 
 document.getElementById('btnPickIndoorExcel').onclick = ()=> document.getElementById('indoorExcelFile').click();
@@ -1601,11 +1631,13 @@ function getVisibleIndoorItems(){
   const maxRaw = document.getElementById('indoorMaxDays').value;
   const minDays = minRaw !== '' && !isNaN(Number(minRaw)) ? Number(minRaw) : null;   // 이 값 "이상"
   const maxDays = maxRaw !== '' && !isNaN(Number(maxRaw)) ? Number(maxRaw) : null;   // 이 값 "미만"
+  const managerFilter = document.getElementById('indoorManagerFilter').value;
   let list = indoorCatalog.items.filter(it=>{
     if(!showCompleted && it.status && it.status.includes('완료')) return false;
     if(minDays !== null && (it.days === null || it.days < minDays)) return false;
     if(maxDays !== null && (it.days === null || it.days >= maxDays)) return false;
-    if(q && !(it.customer.toLowerCase().includes(q) || it.model.toLowerCase().includes(q))) return false;
+    if(managerFilter && it.manager !== managerFilter) return false;
+    if(q && !(it.customer.toLowerCase().includes(q) || it.model.toLowerCase().includes(q) || (it.productName||'').toLowerCase().includes(q))) return false;
     return true;
   });
   const sort = document.getElementById('indoorSort').value;
@@ -1640,47 +1672,53 @@ function renderIndoorGrid(){
   if(countEl) countEl.textContent = `전체 ${indoorCatalog.items.length}건 중 ${visible.length}건 표시`
     + (!showCompleted && completedHidden>0 ? ` (구매완료 ${completedHidden}건 숨김)` : '');
   if(visible.length===0){ wrap.innerHTML = '<div style="color:#9aa0a6;font-size:13px;">일치하는 항목이 없습니다.</div>'; return; }
-  // 화면에 없는(필터로 가려진) 항목의 선택은 정리한다 - 안 보이는데 선택된 채로 남는 걸 방지
-  const visibleKeys = new Set(visible.map(indoorKey));
-  indoorSelected.forEach(k=>{ if(!visibleKeys.has(k)) indoorSelected.delete(k); });
-  wrap.innerHTML = `<table class="log-table"><thead><tr>
+  wrap.innerHTML = `<table class="log-table indoor-table"><thead><tr>
       <th><input type="checkbox" id="indoorSelectAll"></th>
-      <th>고객사명</th><th>형번</th><th>구분</th><th>경과일</th><th>구매상태</th><th>고객번호</th><th>담당내근</th><th>이메일주소</th><th>발송가부</th><th>카드생성</th>
+      <th>고객사명</th><th>형번</th><th>상품명</th><th>구분</th><th>경과일</th><th>구매상태</th><th>담당내근</th><th>이메일주소</th><th>카드생성</th>
     </tr></thead><tbody>
     ${visible.slice(0,300).map(it=>{
       const done = it.status && it.status.includes('완료');
       const rowStyle = done ? 'opacity:0.55;' : '';
-      const key = indoorKey(it);
-      const madeCard = indoorDoneKeys.has(key);
+      const madeCard = indoorDoneKeys.has(indoorKey(it));
       return `
-      <tr style="${rowStyle}" data-key="${escapeHtml(key)}">
-        <td><input type="checkbox" class="indoorChk" ${indoorSelected.has(key)?'checked':''}></td>
-        <td class="customer">${escapeHtml(it.customer || '-')}</td>
+      <tr style="${rowStyle}" data-rowid="${escapeHtml(it.rowId)}">
+        <td><input type="checkbox" class="indoorChk" ${indoorSelected.has(it.rowId)?'checked':''}></td>
+        <td class="customer">${escapeHtml(it.customer || '-')}${it.customerNo ? `<span class="sub">고객번호 ${escapeHtml(it.customerNo)}</span>` : ''}</td>
         <td class="model">${escapeHtml(it.model || '-')}</td>
+        <td class="ellip" title="${escapeHtml(it.productName || '')}">${escapeHtml(it.productName || '-')}</td>
         <td>${escapeHtml(it.kind || '-')}</td>
         <td style="color:${indoorDaysColor(it.days)};font-weight:700;">${it.days===null ? '-' : it.days + '일'}</td>
         <td>${escapeHtml(it.status || '-')}</td>
-        <td>${escapeHtml(it.customerNo || '-')}</td>
         <td>${escapeHtml(it.manager || '-')}</td>
-        <td>${escapeHtml(it.email || '-')}</td>
-        <td>${escapeHtml(it.sendYn || '-')}</td>
-        <td>${madeCard ? '<span style="color:#2e7d32;font-weight:700;">✔ 완료</span>' : '-'}</td>
+        <td class="ellip" title="${escapeHtml(it.email || '')}">${escapeHtml(it.email || '-')}${it.sendYn ? `<span class="sub">발송가부 ${escapeHtml(it.sendYn)}</span>` : ''}</td>
+        <td>${madeCard ? `<button class="doneLink" data-act="resetDone" title="잘못 만들었거나 테스트로 만든 경우 눌러서 되돌리세요">✔ 완료 (되돌리기)</button>` : '-'}</td>
       </tr>`;
     }).join('')}
     </tbody></table>`;
-  wrap.querySelectorAll('tr[data-key]').forEach(tr=>{
+  wrap.querySelectorAll('tr[data-rowid]').forEach(tr=>{
     const chk = tr.querySelector('.indoorChk');
     chk.onchange = ()=>{
-      if(chk.checked) indoorSelected.add(tr.dataset.key); else indoorSelected.delete(tr.dataset.key);
+      if(chk.checked) indoorSelected.add(tr.dataset.rowid); else indoorSelected.delete(tr.dataset.rowid);
       updateIndoorSelCount();
       document.getElementById('indoorSelectAll').checked = wrap.querySelectorAll('.indoorChk:not(:checked)').length===0;
     };
+    const resetBtn = tr.querySelector('[data-act="resetDone"]');
+    if(resetBtn){
+      resetBtn.onclick = ()=>{
+        const it = indoorCatalog.items.find(x=>x.rowId===tr.dataset.rowid);
+        if(!it) return;
+        if(!confirm('이 항목의 "카드 생성됨" 표시를 되돌릴까요?')) return;
+        indoorDoneKeys.delete(indoorKey(it));
+        persistIndoorDone();
+        renderIndoorGrid();
+      };
+    }
   });
   const selectAllChk = document.getElementById('indoorSelectAll');
-  selectAllChk.checked = visible.length>0 && visible.every(it=>indoorSelected.has(indoorKey(it)));
+  selectAllChk.checked = visible.length>0 && visible.every(it=>indoorSelected.has(it.rowId));
   selectAllChk.onchange = ()=>{
-    wrap.querySelectorAll('tr[data-key]').forEach(tr=>{
-      if(selectAllChk.checked) indoorSelected.add(tr.dataset.key); else indoorSelected.delete(tr.dataset.key);
+    wrap.querySelectorAll('tr[data-rowid]').forEach(tr=>{
+      if(selectAllChk.checked) indoorSelected.add(tr.dataset.rowid); else indoorSelected.delete(tr.dataset.rowid);
       tr.querySelector('.indoorChk').checked = selectAllChk.checked;
     });
     updateIndoorSelCount();
@@ -1696,18 +1734,33 @@ document.getElementById('indoorSort').onchange = renderIndoorGrid;
 document.getElementById('indoorMinDays').oninput = renderIndoorGrid;
 document.getElementById('indoorMaxDays').oninput = renderIndoorGrid;
 document.getElementById('indoorShowCompleted').onchange = renderIndoorGrid;
+document.getElementById('indoorManagerFilter').onchange = renderIndoorGrid;
 renderIndoorCatalogStatus();
+populateIndoorManagerFilter();
+
+document.getElementById('btnIndoorResetAllDone').onclick = ()=>{
+  if(indoorDoneKeys.size===0){ toast('초기화할 "카드생성" 표시가 없습니다.'); return; }
+  if(!confirm(`"카드 생성됨" 표시 ${indoorDoneKeys.size}건을 전부 초기화할까요? (실제로 만들어진 카드는 지워지지 않습니다)`)) return;
+  indoorDoneKeys.clear();
+  persistIndoorDone();
+  renderIndoorGrid();
+  toast('카드생성 표시를 모두 초기화했습니다.');
+};
 
 /* 선택한 항목들 → 카드 편집으로 일괄 전송.
    형번은 그대로, 상품 링크는 형번 검색과 같은 로직(정확매칭→줄기 추정)으로 시리즈코드를 조회해서 채우고,
    시리즈코드별 이미지가 나중에 올라오면(data/series_images.json) 그것도 같이 채운다.
-   고객사명이 전부 같으면 상단 고객사명/이메일도 같이 채워서 바로 "Outlook 메일 준비"로 이어갈 수 있게 한다. */
+   고객사명이 전부 같으면 상단 고객사명/이메일/담당자(담당내근)도 같이 채워서 바로
+   "Outlook 메일 준비"로 이어갈 수 있게 한다.
+   선택은 rowId(화면에 표시된 그 줄) 기준이라, 같은 고객+형번이 중복된 줄이 있어도
+   실제로 체크한 줄 수만큼만 카드가 만들어진다. */
 document.getElementById('btnIndoorMakeCards').onclick = async ()=>{
-  const selectedItems = indoorCatalog.items.filter(it=> indoorSelected.has(indoorKey(it)));
+  const selectedItems = indoorCatalog.items.filter(it=> indoorSelected.has(it.rowId));
   if(selectedItems.length===0){ toast('먼저 표에서 항목을 체크하세요.'); return; }
 
   const distinctCustomers = [...new Set(selectedItems.map(it=>it.customer).filter(Boolean))];
   const distinctEmails = [...new Set(selectedItems.map(it=>it.email).filter(Boolean))];
+  const distinctManagers = [...new Set(selectedItems.map(it=>it.manager).filter(Boolean))];
 
   for(const it of selectedItems){
     const entry = await resolveModelEntry(it.model);
@@ -1715,7 +1768,8 @@ document.getElementById('btnIndoorMakeCards').onclick = async ()=>{
     const nc = defaultCard();
     nc.model = it.model || nc.model;
     nc.link = entry.link;
-    if(entry.seriesName) nc.name = entry.seriesName;
+    if(it.productName) nc.name = it.productName;
+    else if(entry.seriesName) nc.name = entry.seriesName;
     const imgFile = entry.seriesCode ? manifest[entry.seriesCode] : null;
     if(imgFile) nc.img = `data/images/${imgFile}`;
     cards.push(nc);
@@ -1732,6 +1786,10 @@ document.getElementById('btnIndoorMakeCards').onclick = async ()=>{
       localStorage.setItem(LS_CUSTOMER_EMAIL, distinctEmails[0]);
     }
   }
+  if(distinctManagers.length===1){
+    repInput.value = distinctManagers[0];
+    localStorage.setItem(LS_REP, distinctManagers[0]);
+  }
 
   document.querySelector('.tab[data-panel="editPanel"]').click();
   renderGrid();
@@ -1740,6 +1798,7 @@ document.getElementById('btnIndoorMakeCards').onclick = async ()=>{
   let msg = `카드 ${selectedItems.length}개를 카드 편집으로 보냈습니다.`;
   if(distinctCustomers.length===1) msg += ` (고객사명·이메일 자동 채움: ${distinctCustomers[0]})`;
   else if(distinctCustomers.length>1) msg += ' 여러 고객사가 섞여 있어 상단 고객사명은 채우지 않았습니다 - 카드별로 직접 확인하세요.';
+  if(distinctManagers.length===1) msg += ` (담당자란에 담당내근 "${distinctManagers[0]}" 자동 채움)`;
   toast(msg);
 };
 
