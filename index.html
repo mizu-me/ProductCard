@@ -16,9 +16,10 @@
   .btn.primary{ background:var(--navy-dark); color:#fff; border-color:var(--navy-dark); }
   .btn.ghost{ background:transparent; color:#fff; border-color:rgba(255,255,255,.5); }
 
-  .tabs{ max-width:1180px; margin:18px auto 0; display:flex; gap:8px; padding:0 24px; flex-wrap:wrap; }
+  .tabs{ max-width:1180px; margin:18px auto 0; display:flex; align-items:flex-end; gap:8px; padding:0 24px; flex-wrap:wrap; }
   .tab{ padding:9px 16px; border-radius:8px 8px 0 0; border:1px solid var(--gray-line); border-bottom:none; background:#fff; font-weight:700; font-size:13px; cursor:pointer; color:#555; }
   .tab.active{ background:var(--navy-dark); color:#fff; }
+  .tab-sep{ width:1px; align-self:stretch; margin:6px 2px; background:var(--gray-line); }
 
   .panel{ display:none; max-width:1180px; margin:0 auto; padding:18px 24px 60px; }
   .panel.show{ display:block; }
@@ -156,9 +157,12 @@
 <div class="tabs">
   <div class="tab active" data-panel="editPanel">카드 편집</div>
   <div class="tab" data-panel="fieldPanel">외근영업</div>
+  <div class="tab" data-panel="indoorPanel">내근영업</div>
+  <div class="tab-sep"></div>
   <div class="tab" data-panel="archPanel">보관함</div>
   <div class="tab" data-panel="sendLogPanel">발송이력</div>
   <div class="tab" data-panel="custPanel">고객사별</div>
+  <div class="tab-sep"></div>
   <div class="tab" data-panel="mailPanel">메일 설정</div>
   <div class="tab" data-panel="addrPanel">메일주소록</div>
   <div class="tab" data-panel="sharePanel">공유 / 엑셀 연동</div>
@@ -189,6 +193,34 @@
     <span id="fieldCount" style="font-size:12px;color:var(--text-sub);align-self:center;"></span>
   </div>
   <div class="arch-grid" id="fieldGrid"></div>
+</div>
+
+<div class="panel" id="indoorPanel">
+  <div class="hint">
+    사무실(내근) 업무용 탭입니다. 캠페인관리 매크로 엑셀(<b>미구매고객_캠페인관리_V1.xlsm</b>) 파일을 그대로 올리면
+    <b>고객사명·형번·CAD/QT 구분·경과일</b>만 뽑아서 오늘 처리할 목록으로 보여줍니다.
+    업로드한 파일은 이 브라우저 안에서만 읽고 표시할 뿐, 깃허브나 다른 어떤 서버에도 올라가지 않습니다 (고객 정보가 포함된 엑셀이라도 안전합니다).<br>
+    시트 안에 <b>고객명(또는 고객사명·거래처명)</b>, <b>형번(또는 모델)</b>, <b>구분(CAD/QT 등)</b>, <b>경과일(또는 등록일·접수일 같은 날짜)</b> 열이 있으면 자동으로 인식합니다.
+  </div>
+  <div class="share-box">
+    <h3>캠페인관리 엑셀 업로드</h3>
+    <div class="share-actions">
+      <button class="btn" id="btnPickIndoorExcel">엑셀 파일 선택 (.xlsm/.xlsx)</button>
+      <input type="file" id="indoorExcelFile" accept=".xlsm,.xlsx,.xls">
+      <select id="indoorSheetSelect" style="display:none;padding:8px 10px;border-radius:8px;border:1px solid var(--gray-line);font-size:12.5px;"></select>
+      <span id="indoorExcelStatus" style="font-size:12px;color:var(--text-sub);align-self:center;"></span>
+    </div>
+  </div>
+  <div style="margin:14px 0;display:flex;gap:8px;flex-wrap:wrap;">
+    <input id="indoorSearch" placeholder="고객사명·형번 일부만 입력해도 검색됨" style="flex:1;min-width:220px;padding:9px 14px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
+    <select id="indoorSort" style="padding:9px 10px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
+      <option value="daysDesc">경과일 많은 순 (급한 것 먼저)</option>
+      <option value="daysAsc">경과일 적은 순</option>
+      <option value="customer">고객사명순</option>
+    </select>
+    <span id="indoorCount" style="font-size:12px;color:var(--text-sub);align-self:center;"></span>
+  </div>
+  <div id="indoorWrap"></div>
 </div>
 
 <div class="panel" id="codePanel">
@@ -521,6 +553,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
     tab.classList.add('active');
     document.getElementById(tab.dataset.panel).classList.add('show');
     if(tab.dataset.panel==='fieldPanel') renderFieldGrid();
+    if(tab.dataset.panel==='indoorPanel') renderIndoorGrid();
     if(tab.dataset.panel==='archPanel') renderArchive();
     if(tab.dataset.panel==='mailPanel') renderMailTemplatesTab();
     if(tab.dataset.panel==='sendLogPanel') renderSendLog();
@@ -1366,6 +1399,148 @@ function renderFieldGrid(){
 }
 document.getElementById('fieldSearch').oninput = renderFieldGrid;
 renderFieldCatalogStatus();
+
+/* ===================== 내근영업 탭: 캠페인관리 매크로 엑셀 업로드 =====================
+   외근영업(상품 카탈로그)과는 다른 목적/다른 파일이다. 여기서는 미구매고객_캠페인관리_V1.xlsm
+   같은 매크로 엑셀(SQL결과 시트 등)을 그대로 올려서, 고객사명·형번·CAD/QT 구분·경과일만
+   추려서 "오늘 처리할 목록"으로 보여준다. 원본 엑셀에는 고객 정보 등 민감한 열이 더 있을 수
+   있지만, 그 파일은 브라우저 메모리(및 이 브라우저의 localStorage)에만 남고 깃허브/서버로는
+   절대 전송되지 않는다 - 화면에는 아래 4개 값만 뽑아서 보여준다. */
+const LS_INDOOR_CATALOG = 'cardEditor.indoorCatalog.v1';
+let indoorCatalog = JSON.parse(localStorage.getItem(LS_INDOOR_CATALOG) || 'null') || { uploadedAt: '', items: [] };
+function persistIndoorCatalog(){ localStorage.setItem(LS_INDOOR_CATALOG, JSON.stringify(indoorCatalog)); }
+
+let indoorWorkbook = null; // 시트 재선택 시 다시 파일을 읽지 않도록 캐시
+
+function parseIndoorSheet(wb, sheetName){
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+  let headerIdx = rows.findIndex(r => r.some(cell => String(cell).includes('형번') || String(cell).includes('고객')));
+  if(headerIdx === -1) headerIdx = 0;
+  const header = rows[headerIdx];
+  const idxOf = (...names)=> header.findIndex(h=> names.some(n=>String(h).includes(n)));
+  const col = {
+    customer: idxOf('고객사명','고객명','거래처명','고객사'),
+    model: idxOf('형번','모델'),
+    kind: idxOf('구분','유형','CAD/QT','CADQT','요청구분','문의구분'),
+    days: idxOf('경과일수','경과일','D-DAY','D-day'),
+    date: idxOf('최초등록일','등록일','접수일','요청일','문의일','일자','날짜')
+  };
+  if(col.customer < 0 && col.model < 0){ return { ok:false }; }
+  const dataRows = rows.slice(headerIdx+1).filter(r => r.some(c=>String(c).trim()!==''));
+  const today = new Date(); today.setHours(0,0,0,0);
+  const items = dataRows.map(r=>{
+    let days = null;
+    if(col.days>=0){
+      const n = Number(String(r[col.days]).replace(/[^0-9.-]/g,''));
+      if(!isNaN(n)) days = Math.round(n);
+    } else if(col.date>=0 && r[col.date] !== ''){
+      let d = null;
+      const raw = r[col.date];
+      if(raw instanceof Date) d = raw;
+      else if(typeof raw === 'number') d = new Date(Math.round((raw - 25569) * 86400 * 1000)); // 엑셀 시리얼 날짜
+      else { const parsed = new Date(String(raw).replace(/\./g,'-')); if(!isNaN(parsed)) d = parsed; }
+      if(d && !isNaN(d)){ d.setHours(0,0,0,0); days = Math.round((today - d) / 86400000); }
+    }
+    return {
+      customer: col.customer>=0 ? String(r[col.customer]).trim() : '',
+      model: col.model>=0 ? String(r[col.model]).trim() : '',
+      kind: col.kind>=0 ? String(r[col.kind]).trim() : '',
+      days
+    };
+  }).filter(it=> it.customer || it.model);
+  return { ok:true, items };
+}
+
+function loadIndoorSheet(wb, sheetName){
+  const res = parseIndoorSheet(wb, sheetName);
+  if(!res.ok){ toast('선택한 시트에서 "고객사명"/"형번" 열을 찾지 못했습니다.'); return; }
+  indoorCatalog = { uploadedAt: new Date().toISOString(), items: res.items };
+  persistIndoorCatalog();
+  renderIndoorCatalogStatus();
+  renderIndoorGrid();
+  toast(`내근영업 목록 ${res.items.length}건을 불러왔습니다.`);
+}
+
+document.getElementById('btnPickIndoorExcel').onclick = ()=> document.getElementById('indoorExcelFile').click();
+document.getElementById('indoorExcelFile').onchange = (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    try{
+      const wb = XLSX.read(ev.target.result, { type:'binary' });
+      indoorWorkbook = wb;
+      const sel = document.getElementById('indoorSheetSelect');
+      sel.innerHTML = wb.SheetNames.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+      sel.style.display = wb.SheetNames.length>1 ? 'inline-block' : 'none';
+      const preferred = wb.SheetNames.find(n=>n.includes('SQL결과')) || wb.SheetNames.find(n=>n.includes('결과')) || wb.SheetNames[0];
+      sel.value = preferred;
+      loadIndoorSheet(wb, preferred);
+    }catch(err){ toast('엑셀 파일을 읽는 중 오류가 발생했습니다.'); }
+  };
+  reader.readAsBinaryString(f);
+  e.target.value = '';
+};
+document.getElementById('indoorSheetSelect').onchange = (e)=>{
+  if(indoorWorkbook) loadIndoorSheet(indoorWorkbook, e.target.value);
+};
+
+function renderIndoorCatalogStatus(){
+  const el = document.getElementById('indoorExcelStatus');
+  if(!el) return;
+  el.textContent = indoorCatalog.items.length>0
+    ? `${indoorCatalog.items.length}건 업로드됨 (${new Date(indoorCatalog.uploadedAt).toLocaleString('ko-KR')})`
+    : '';
+}
+
+function getVisibleIndoorItems(){
+  const q = (document.getElementById('indoorSearch').value || '').trim().toLowerCase();
+  let list = indoorCatalog.items.filter(it => !q
+    || it.customer.toLowerCase().includes(q)
+    || it.model.toLowerCase().includes(q));
+  const sort = document.getElementById('indoorSort').value;
+  list = list.slice().sort((a,b)=>{
+    if(sort==='customer') return a.customer.localeCompare(b.customer, 'ko');
+    const da = a.days ?? -Infinity, db = b.days ?? -Infinity;
+    return sort==='daysAsc' ? da - db : db - da;
+  });
+  return list;
+}
+
+function indoorDaysColor(days){
+  if(days === null) return 'var(--text-sub)';
+  if(days >= 14) return 'var(--red)';
+  if(days >= 7) return '#c07a00';
+  return 'var(--text-sub)';
+}
+
+function renderIndoorGrid(){
+  const wrap = document.getElementById('indoorWrap');
+  const countEl = document.getElementById('indoorCount');
+  if(!wrap) return;
+  if(indoorCatalog.items.length===0){
+    wrap.innerHTML = '<div style="color:#9aa0a6;font-size:13px;">아직 업로드된 캠페인관리 엑셀이 없습니다. 위에서 파일을 먼저 올려주세요.</div>';
+    if(countEl) countEl.textContent = '';
+    return;
+  }
+  const visible = getVisibleIndoorItems();
+  if(countEl) countEl.textContent = `전체 ${indoorCatalog.items.length}건 중 ${visible.length}건 표시`;
+  if(visible.length===0){ wrap.innerHTML = '<div style="color:#9aa0a6;font-size:13px;">일치하는 항목이 없습니다.</div>'; return; }
+  wrap.innerHTML = `<table class="log-table"><thead><tr>
+      <th>고객사명</th><th>형번</th><th>구분</th><th>경과일</th>
+    </tr></thead><tbody>
+    ${visible.slice(0,300).map(it=>`
+      <tr>
+        <td class="customer">${escapeHtml(it.customer || '-')}</td>
+        <td class="model">${escapeHtml(it.model || '-')}</td>
+        <td>${escapeHtml(it.kind || '-')}</td>
+        <td style="color:${indoorDaysColor(it.days)};font-weight:700;">${it.days===null ? '-' : it.days + '일'}</td>
+      </tr>`).join('')}
+    </tbody></table>`;
+}
+document.getElementById('indoorSearch').oninput = renderIndoorGrid;
+document.getElementById('indoorSort').onchange = renderIndoorGrid;
+renderIndoorCatalogStatus();
 
 /* ===================== 형번 검색 → 시리즈코드 자동 링크 =====================
    전체 형번(약 179만개)을 한 번에 불러오면 너무 커서, 형번 앞 2글자 기준으로 잘게 쪼갠
