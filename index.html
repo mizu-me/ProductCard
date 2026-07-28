@@ -1457,14 +1457,45 @@ function misumiDetailUrl(seriesCode){ return `https://kr.misumi-ec.com/vona2/det
 // DB(shards)에 없는 형번은 시리즈코드를 모르므로, 미스미 검색결과 페이지로 보낸다(형번을 Keyword로만 넣으면 됨).
 function misumiSearchUrl(keyword){ return `https://kr.misumi-ec.com/vona2/result/?Keyword=${encodeURIComponent(keyword)}&isReSearch=0`; }
 
+/* ----- 형번 "줄기" 폴백 (끝자리 치수만 다른 형번을 DB에서 못 찾았을 때, 같은 시리즈의 다른 사이즈로 추정) -----
+   build_data.py에서 전체 CSV로 검증: 끝자리 숫자 하나를 뗀 줄기가 단일 시리즈로만 이어지는 비율이 99.4%.
+   그래도 100% 확실한 건 아니라서 "추정 매칭"으로 표시하고, 실제 확인은 사람이 하게 한다. */
+const stemShardCache = new Map();
+function stemOf(modelUpper){ return modelUpper.replace(/[-_]?\d+(\.\d+)?$/, ''); }
+async function fetchStemShard(prefix){
+  if(stemShardCache.has(prefix)) return stemShardCache.get(prefix);
+  try{
+    const res = await fetch(`${MODEL_DATA_BASE}/stems/${encodeURIComponent(prefix)}.json`);
+    if(!res.ok){ stemShardCache.set(prefix, []); return []; }
+    const data = await res.json();
+    stemShardCache.set(prefix, data);
+    return data;
+  }catch(e){ stemShardCache.set(prefix, []); return []; }
+}
+
 async function searchModels(query){
   const q = query.trim().toUpperCase();
   if(q.length < 2) return { tooShort:true, list:[] };
   await loadSeriesMaster();
-  const prefix = q.slice(0,2);
+  // 조각 파일을 손으로 업로드해야 하는 환경이라 앞 1글자 기준으로만 나눔(build_data.py와 동일 기준).
+  // 그 1글자 조각만 한 번 받아오면, "e" -> "ea" -> "eas"처럼 더 입력하는 건 추가 요청 없이
+  // 이미 받은 데이터 안에서 즉시 필터링된다.
+  const prefix = q.slice(0,1);
   const shard = await fetchModelShard(prefix);
-  const list = shard.filter(row=> row[0].toUpperCase().startsWith(q)).slice(0,30)
-    .map(row=>({ model: row[0], seriesCode: row[1], seriesName: seriesMaster[row[1]] || '' }));
+  let list = shard.filter(row=> row[0].toUpperCase().startsWith(q)).slice(0,30)
+    .map(row=>({ model: row[0], seriesCode: row[1], seriesName: seriesMaster[row[1]] || '', estimated:false }));
+
+  // 정확히 일치하는 형번이 없으면, 끝자리 치수만 뗀 "줄기"로 한 번 더 찾아본다(추정 매칭).
+  if(list.length===0 && !modelDataMissing){
+    const stem = stemOf(q);
+    if(stem && stem.length>=3){
+      const stemRows = await fetchStemShard(prefix);
+      const hit = stemRows.find(row=> row[0]===stem);
+      if(hit){
+        list = [{ model: query.trim(), seriesCode: hit[1], seriesName: seriesMaster[hit[1]] || '', estimated:true }];
+      }
+    }
+  }
   return { tooShort:false, list };
 }
 
@@ -1479,9 +1510,11 @@ function openModelSearchModal(card){
     persistCards(); renderGrid();
     pushRecentModel(entry);
     overlay.style.display = 'none'; overlay.innerHTML = '';
-    toast(entry.seriesCode
-      ? `형번과 상품 링크(시리즈코드 ${entry.seriesCode})가 채워졌습니다.`
-      : `형번(${entry.model})과 미스미 검색 링크가 채워졌습니다. 정확한 상품인지 확인해 주세요.`);
+    let msg;
+    if(entry.estimated) msg = `추정 매칭입니다(같은 시리즈의 다른 사이즈 기준) - 시리즈코드 ${entry.seriesCode}. "링크 확인↗"으로 실제 상품이 맞는지 꼭 확인하세요.`;
+    else if(entry.seriesCode) msg = `형번과 상품 링크(시리즈코드 ${entry.seriesCode})가 채워졌습니다.`;
+    else msg = `형번(${entry.model})과 미스미 검색 링크가 채워졌습니다. 정확한 상품인지 확인해 주세요.`;
+    toast(msg);
   };
 
   const runSearch = async (input, resultsEl)=>{
@@ -1513,13 +1546,31 @@ function openModelSearchModal(card){
       resultsEl.querySelector('[data-fallback]').onclick = ()=> selectModel({ model: kw, seriesCode:'', seriesName:'', link: misumiSearchUrl(kw) });
       return;
     }
-    resultsEl.innerHTML = list.map(r=>`
-      <div class="tpl-list-item" style="margin:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;" data-model="${escapeHtml(r.model)}" data-series="${escapeHtml(r.seriesCode)}" data-name="${escapeHtml(r.seriesName||'')}">
-        <span style="overflow:hidden;"><b>${escapeHtml(r.model)}</b> <span style="color:var(--text-sub);font-weight:400;">- ${escapeHtml(r.seriesName || '(시리즈명 없음)')}</span></span>
+    resultsEl.innerHTML = list.map(r=>{
+      let noteHtml;
+      if(r.estimated){
+        noteHtml = `<span style="color:#b45309;font-weight:700;">- ${escapeHtml(r.seriesName || '시리즈명 없음')} (추정매칭 · 확인필요)</span>`;
+      } else if(r.seriesCode){
+        noteHtml = `<span style="color:var(--text-sub);font-weight:400;">- ${escapeHtml(r.seriesName || '(시리즈명 없음)')}</span>`;
+      } else {
+        noteHtml = `<span style="color:var(--text-sub);font-weight:400;">(미분류 상품 · 직접 확인 필요)</span>`;
+      }
+      return `<div class="tpl-list-item" style="margin:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;" data-model="${escapeHtml(r.model)}" data-series="${escapeHtml(r.seriesCode)}" data-name="${escapeHtml(r.seriesName||'')}" data-estimated="${r.estimated?'1':'0'}">
+        <span style="overflow:hidden;"><b>${escapeHtml(r.model)}</b> ${noteHtml}</span>
         <button class="btn" data-fav-toggle-row="1" style="flex:none;padding:2px 8px;">${isFavModel(r.model) ? '★' : '☆'}</button>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     resultsEl.querySelectorAll('[data-model]').forEach(el=>{
-      const entryOf = ()=> ({ model: el.dataset.model, seriesCode: el.dataset.series, seriesName: el.dataset.name||'', link: misumiDetailUrl(el.dataset.series) });
+      const entryOf = ()=> {
+        const seriesCode = el.dataset.series;
+        return {
+          model: el.dataset.model,
+          seriesCode,
+          seriesName: el.dataset.name||'',
+          estimated: el.dataset.estimated === '1',
+          link: seriesCode ? misumiDetailUrl(seriesCode) : misumiSearchUrl(el.dataset.model)
+        };
+      };
       el.querySelector('[data-fav-toggle-row]').onclick = (e)=>{
         e.stopPropagation();
         toggleFavModel(entryOf());
@@ -1534,7 +1585,8 @@ function openModelSearchModal(card){
 
   overlay.innerHTML = `<div class="modal-box">
     <h3>형번 검색</h3>
-    <p>형번 앞부분(2글자 이상)을 입력하면 후보가 뜹니다. 고르면 형번과 상품 링크가 자동으로 채워집니다. 자주 쓰는 형번은 ☆를 눌러 즐겨찾기에 등록해두면, 다음부터는 검색 없이 바로 고를 수 있습니다.</p>
+    <p>형번 앞부분(2글자 이상)을 입력하면 후보가 뜹니다. 고르면 형번과 상품 링크가 자동으로 채워집니다. 자주 쓰는 형번은 ☆를 눌러 즐겨찾기에 등록해두면, 다음부터는 검색 없이 바로 고를 수 있습니다.<br>
+    <span style="color:#b45309;">"추정매칭"</span>으로 표시된 결과는 정확히 일치하는 형번은 없지만 같은 시리즈의 다른 사이즈로 보이는 경우입니다 — 카드 편집 화면의 "링크 확인↗"으로 실제 상품이 맞는지 꼭 확인 후 보내세요.</p>
     <input id="modelSearchInput" placeholder="예: MS3, LEMS16" style="width:100%;padding:9px 12px;border:1px solid var(--gray-line);border-radius:6px;font-size:13px;margin-bottom:10px;">
     <div id="modelSearchResults" style="max-height:280px;overflow:auto;border:1px solid var(--gray-line);border-radius:6px;"></div>
     <div class="modal-actions"><button class="btn" id="modalCancel">닫기</button></div>
