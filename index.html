@@ -191,7 +191,7 @@
     외근 중에도 빠르게 상품 카드를 만들 수 있는 탭입니다. 사무실에서 [카드 편집]으로 직접 하나씩 만드는 대신,
     미리 준비된 상품 데이터 엑셀(형번·이미지·가격)을 올려두고 형번이나 상품명 일부만 검색해서 바로 카드를 만드세요.<br>
     엑셀에는 <b>형번</b>(필수), <b>상품명·이미지URL·정가(단가)·판매가·카테고리·납기</b>(선택) 열이 있으면 자동으로 인식됩니다.
-    이미지는 URL 형태(예: kr.misumi-ec.com 상품페이지에서 복사한 이미지 주소)만 지원합니다.
+    이미지는 URL 형태(예: kr.misumi-ec.com 상품페이지에서 복사한 이미지 주소)도 되고, 엑셀에 이미지가 없으면 형번으로 자동 조회해 준비된 상품 사진을 채워줍니다.
   </div>
   <div class="share-box">
     <h3>상품 데이터 엑셀 업로드</h3>
@@ -206,6 +206,30 @@
     <span id="fieldCount" style="font-size:12px;color:var(--text-sub);align-self:center;"></span>
   </div>
   <div class="arch-grid" id="fieldGrid"></div>
+
+  <hr style="margin:26px 0;border:none;border-top:1px solid var(--gray-line);">
+
+  <div class="hint">
+    <b>상품 사진 갤러리</b> - 형번을 몰라도, 방문 전에 사진만 보고 미리 이야기할 상품을 골라둘 수 있는 곳입니다.
+    시리즈코드 기준 상품 사진입니다. 그중 일부(<span id="galleryNamedCount">-</span>건)는 상품명이 확인되지만,
+    나머지는 사진만 있고 상품명은 아직 확인되지 않았습니다 - 사진을 보고 형번/메모를 직접 입력해서 카드로 만드세요.
+  </div>
+  <div style="margin:14px 0 10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <input id="gallerySearch" placeholder="시리즈코드 또는 (있는 경우) 상품명으로 검색" style="flex:1;min-width:220px;padding:9px 14px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
+    <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-sub);cursor:pointer;">
+      <input type="checkbox" id="galleryOnlyNamed">상품명 확인된 것만 보기
+    </label>
+    <span id="galleryCount" style="font-size:12px;color:var(--text-sub);align-self:center;"></span>
+  </div>
+  <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <span id="gallerySelCount" style="font-size:12.5px;color:var(--text-sub);">선택 0장</span>
+    <button class="btn primary" id="btnGalleryMakeSelected">선택한 사진으로 카드 여러 개 만들기</button>
+    <span style="font-size:11.5px;color:var(--text-sub);">여러 장을 한번에 담으면 형번/상품명은 비어있으니 카드 편집에서 직접 채우거나 "형번 검색"을 쓰세요.</span>
+  </div>
+  <div class="arch-grid" id="galleryGrid"></div>
+  <div id="galleryMoreWrap" style="text-align:center;margin-top:14px;display:none;">
+    <button class="btn" id="btnGalleryMore">더 보기</button>
+  </div>
 </div>
 
 <div class="panel" id="indoorPanel">
@@ -598,7 +622,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
     document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show'));
     tab.classList.add('active');
     document.getElementById(tab.dataset.panel).classList.add('show');
-    if(tab.dataset.panel==='fieldPanel') renderFieldGrid();
+    if(tab.dataset.panel==='fieldPanel'){ renderFieldGrid(); renderGallery(); }
     if(tab.dataset.panel==='indoorPanel') renderIndoorGrid();
     if(tab.dataset.panel==='archPanel') renderArchive();
     if(tab.dataset.panel==='mailPanel') renderMailTemplatesTab();
@@ -1483,7 +1507,7 @@ function renderFieldGrid(){
     </div>`).join('');
   wrap.querySelectorAll('.arch-item').forEach(el=>{
     const it = visible[Number(el.dataset.i)];
-    el.querySelector('[data-act="makeCard"]').onclick = ()=>{
+    el.querySelector('[data-act="makeCard"]').onclick = async ()=>{
       const nc = defaultCard();
       nc.name = it.name || nc.name;
       nc.model = it.model;
@@ -1493,14 +1517,156 @@ function renderFieldGrid(){
       nc.listPrice = it.listPrice;
       nc.salePrice = it.salePrice;
       nc.badge = it.listPrice>0 ? Math.max(0, Math.min(100, Math.round((1 - it.salePrice/it.listPrice)*100))) : 0;
+      // 엑셀에 이미지URL이 없으면, 형번으로 시리즈코드를 찾아 상품 사진(로컬 준비분 우선, 없으면 미스미 CDN에서 확인)으로 채워본다.
+      let linkMsg = '필요하면 "형번 검색"으로 상품 링크도 채워보세요.';
+      if(!nc.img && it.model){
+        const entry = await resolveModelEntry(it.model);
+        if(entry.seriesCode) nc.img = await resolveSeriesImage(entry.seriesCode);
+        if(entry.link){ nc.link = entry.link; linkMsg = '상품 링크도 자동으로 채워졌습니다.'; }
+      }
       cards.push(nc); persistCards();
       document.querySelector('.tab[data-panel="editPanel"]').click();
       renderGrid();
-      toast('카드 편집 화면에 카드를 추가했습니다. 필요하면 "형번 검색"으로 상품 링크도 채워보세요.');
+      toast(`카드 편집 화면에 카드를 추가했습니다. ${linkMsg}`);
     };
   });
 }
 document.getElementById('fieldSearch').oninput = renderFieldGrid;
+
+/* ===================== 외근영업 탭: 상품 사진 갤러리 (형번 없이 사진으로 둘러보기) =====================
+   준비된 이미지 3,553장은 시리즈코드 파일명(예: 110100140620.jpg)이다. 그중 형번DB와 겹치는 시리즈코드(675개)는
+   상품명까지 알 수 있지만, 나머지(2,878개)는 형번DB에 아예 없는 시리즈코드라 사진만 있고 상품명은 모른다
+   (더 넓은 미스미 카탈로그를 커버하는 것으로 보임). 그래도 사진 자체는 방문 전 "이런 상품도 있어요"라고
+   미리 보여주는 용도로 충분히 쓸 수 있으므로, 형번 검색과는 별개로 사진만 훑어보고 카드를 만들 수 있게 한다. */
+let galleryList = null; // [{code, file, name}], name은 형번DB에 있을 때만 채워짐
+let galleryPage = 0;
+const GALLERY_PAGE_SIZE = 60;
+let gallerySelected = new Set(); // 시리즈코드 집합
+
+async function loadGalleryList(){
+  if(galleryList) return galleryList;
+  const manifest = await loadSeriesImageManifest();
+  await loadSeriesMaster();
+  galleryList = Object.keys(manifest).map(code=>({
+    code, file: manifest[code], name: seriesMaster[code] || ''
+  }));
+  // 상품명이 확인된 것을 앞쪽에 보여준다(더 바로 쓸 수 있는 정보이므로).
+  galleryList.sort((a,b)=> (b.name?1:0) - (a.name?1:0) || a.code.localeCompare(b.code));
+  return galleryList;
+}
+
+function getVisibleGalleryList(){
+  const all = galleryList || [];
+  const q = (document.getElementById('gallerySearch').value || '').trim().toLowerCase();
+  const onlyNamed = document.getElementById('galleryOnlyNamed').checked;
+  let list = onlyNamed ? all.filter(it=>it.name) : all;
+  if(q) list = list.filter(it=> it.code.toLowerCase().includes(q) || it.name.toLowerCase().includes(q));
+  return list;
+}
+
+function updateGallerySelCount(){
+  const el = document.getElementById('gallerySelCount');
+  if(el) el.textContent = `선택 ${gallerySelected.size}장`;
+}
+
+async function renderGallery(){
+  const wrap = document.getElementById('galleryGrid');
+  if(!wrap) return;
+  await loadGalleryList();
+  const namedCountEl = document.getElementById('galleryNamedCount');
+  if(namedCountEl) namedCountEl.textContent = galleryList.filter(it=>it.name).length;
+
+  const visible = getVisibleGalleryList();
+  const countEl = document.getElementById('galleryCount');
+  if(countEl) countEl.textContent = `전체 ${galleryList.length}장 중 ${visible.length}장 표시`;
+
+  const pageItems = visible.slice(0, (galleryPage+1)*GALLERY_PAGE_SIZE);
+  if(pageItems.length===0){
+    wrap.innerHTML = '<div style="color:#9aa0a6;font-size:13px;">일치하는 사진이 없습니다.</div>';
+  }else{
+    wrap.innerHTML = pageItems.map(it=>`
+      <div class="arch-item ${gallerySelected.has(it.code)?'selected':''}" data-code="${escapeHtml(it.code)}">
+        <input type="checkbox" class="sel-check" data-act="gsel" ${gallerySelected.has(it.code)?'checked':''}>
+        <img class="thumb" src="data/images/${encodeURIComponent(it.file)}" loading="lazy">
+        <div class="meta">
+          <div class="n">${it.name ? escapeHtml(it.name) : '<span style="color:#b45309;">(상품명 미확인)</span>'}</div>
+          <div class="d">시리즈코드 ${escapeHtml(it.code)}</div>
+        </div>
+        <div class="btns">
+          <button data-act="galleryLink">링크 확인↗</button>
+          <button data-act="galleryMake">카드로 만들기</button>
+        </div>
+      </div>`).join('');
+  }
+  wrap.querySelectorAll('.arch-item').forEach(el=>{
+    const code = el.dataset.code;
+    const it = galleryList.find(x=>x.code===code);
+    el.querySelector('[data-act="gsel"]').onchange = (e)=>{
+      if(e.target.checked) gallerySelected.add(code); else gallerySelected.delete(code);
+      el.classList.toggle('selected', e.target.checked);
+      updateGallerySelCount();
+    };
+    el.querySelector('[data-act="galleryLink"]').onclick = ()=> window.open(misumiDetailUrl(it.code), '_blank');
+    el.querySelector('[data-act="galleryMake"]').onclick = ()=> openGalleryCardModal(it);
+  });
+  const moreWrap = document.getElementById('galleryMoreWrap');
+  if(moreWrap) moreWrap.style.display = visible.length > pageItems.length ? '' : 'none';
+  updateGallerySelCount();
+}
+
+// 사진 한 장을 카드로 만들 때는 형번을 모를 수 있으므로, 형번/상품명을 직접 입력받는다
+// (상품명은 형번DB에서 확인된 경우 미리 채워준다).
+function openGalleryCardModal(it){
+  const overlay = document.getElementById('modalOverlay');
+  overlay.innerHTML = `<div class="modal-box">
+    <h3>사진으로 카드 만들기</h3>
+    <p style="font-size:12.5px;color:var(--text-sub);">시리즈코드 ${escapeHtml(it.code)}${it.name ? ' - ' + escapeHtml(it.name) : ' (상품명 미확인 - 사진을 보고 무슨 상품인지 확인 후 입력하세요)'}</p>
+    <label style="font-size:12.5px;color:var(--text-sub);">형번(알고 있으면 입력, 나중에 채워도 됩니다)</label>
+    <input id="galleryModelInput" placeholder="예: MS3-10" style="width:100%;padding:9px 12px;border:1px solid var(--gray-line);border-radius:6px;font-size:13px;margin:4px 0 12px;">
+    <label style="font-size:12.5px;color:var(--text-sub);">상품명</label>
+    <input id="galleryNameInput" value="${escapeHtml(it.name||'')}" style="width:100%;padding:9px 12px;border:1px solid var(--gray-line);border-radius:6px;font-size:13px;margin:4px 0 12px;">
+    <div class="modal-actions">
+      <button class="btn" id="modalCancel">취소</button>
+      <button class="btn primary" id="galleryMakeSave">카드 만들기</button>
+    </div>
+  </div>`;
+  overlay.style.display = 'flex';
+  overlay.querySelector('#modalCancel').onclick = ()=>{ overlay.style.display='none'; overlay.innerHTML=''; };
+  overlay.querySelector('#galleryMakeSave').onclick = ()=>{
+    const model = overlay.querySelector('#galleryModelInput').value.trim();
+    const name = overlay.querySelector('#galleryNameInput').value.trim();
+    const nc = defaultCard();
+    if(model) nc.model = model;
+    if(name) nc.name = name;
+    nc.img = `data/images/${it.file}`;
+    nc.link = misumiDetailUrl(it.code);
+    cards.push(nc); persistCards();
+    overlay.style.display='none'; overlay.innerHTML='';
+    document.querySelector('.tab[data-panel="editPanel"]').click();
+    renderGrid();
+    toast('카드 편집에 카드를 추가했습니다.' + (model ? '' : ' 형번이 비어있으니 "형번 검색"으로 채워주세요.'));
+  };
+}
+
+document.getElementById('btnGalleryMakeSelected').onclick = ()=>{
+  const list = (galleryList||[]).filter(it=> gallerySelected.has(it.code));
+  if(list.length===0){ toast('먼저 사진을 체크하세요.'); return; }
+  list.forEach(it=>{
+    const nc = defaultCard();
+    if(it.name) nc.name = it.name;
+    nc.img = `data/images/${it.file}`;
+    nc.link = misumiDetailUrl(it.code);
+    cards.push(nc);
+  });
+  persistCards();
+  gallerySelected.clear();
+  document.querySelector('.tab[data-panel="editPanel"]').click();
+  renderGrid();
+  toast(`카드 ${list.length}개를 카드 편집으로 보냈습니다. 형번은 카드에서 직접 입력하거나 "형번 검색"으로 채워주세요.`);
+};
+document.getElementById('gallerySearch').oninput = ()=>{ galleryPage = 0; renderGallery(); };
+document.getElementById('galleryOnlyNamed').onchange = ()=>{ galleryPage = 0; renderGallery(); };
+document.getElementById('btnGalleryMore').onclick = ()=>{ galleryPage++; renderGallery(); };
 renderFieldCatalogStatus();
 
 /* ===================== 내근영업 탭: 캠페인관리 매크로 엑셀 업로드 =====================
@@ -1844,14 +2010,12 @@ document.getElementById('btnIndoorMakeCards').onclick = async ()=>{
 
   for(const it of selectedItems){
     const entry = await resolveModelEntry(it.model);
-    const manifest = await loadSeriesImageManifest();
     const nc = defaultCard();
     nc.model = it.model || nc.model;
     nc.link = entry.link;
     if(it.productName) nc.name = it.productName;
     else if(entry.seriesName) nc.name = entry.seriesName;
-    const imgFile = entry.seriesCode ? manifest[entry.seriesCode] : null;
-    if(imgFile) nc.img = `data/images/${imgFile}`;
+    if(entry.seriesCode) nc.img = await resolveSeriesImage(entry.seriesCode);
     cards.push(nc);
     indoorDoneKeys.add(indoorKey(it));
   }
@@ -2079,6 +2243,38 @@ async function loadSeriesImageManifest(){
   return seriesImageManifest;
 }
 
+/* 미스미 상품 사진은 시리즈코드 기준 URL로 직접 열람 가능하다는 걸 확인했다:
+   https://content.misumi-ec.com/image/upload/t_search_view_a/v1/p/jp/product/series/{시리즈코드}/{시리즈코드}_001.{jpg|png}
+   단, (1) 끝에 "_001"이 꼭 있어야 하고(없으면 안 뜸), (2) 확장자는 원본 사진 형식(jpg 또는 png)과
+   정확히 일치해야 한다(Cloudinary가 자동 변환은 안 해줌) - 그래서 확장자를 모를 땐 jpg를 먼저 시도하고
+   실패하면 png로 한 번 더 시도한다. new Image()로 실제 브라우저에서 로드되는지 미리 확인한 뒤에만
+   카드에 채워 넣으므로, Outlook에 붙여넣었을 때 깨진 이미지가 나올 걱정은 없다(안 뜨면 그냥 채우지 않음).
+   준비해둔 로컬 사진(data/images/, 3,553장)이 있으면 그게 항상 우선이다 - 우리 서버에 있어서 더 안정적이고,
+   실시간으로 미스미 서버 상태에 의존하지 않기 때문이다. */
+function probeImageUrl(url, timeoutMs){
+  return new Promise(resolve=>{
+    const img = new Image();
+    let done = false;
+    const finish = (ok)=>{ if(done) return; done = true; resolve(ok); };
+    img.onload = ()=> finish(true);
+    img.onerror = ()=> finish(false);
+    setTimeout(()=> finish(false), timeoutMs || 4000);
+    img.src = url;
+  });
+}
+async function resolveSeriesImage(seriesCode){
+  if(!seriesCode) return '';
+  const manifest = await loadSeriesImageManifest();
+  const localFile = manifest[seriesCode];
+  if(localFile) return `data/images/${localFile}`;
+  const base = `https://content.misumi-ec.com/image/upload/t_search_view_a/v1/p/jp/product/series/${seriesCode}/${seriesCode}_001`;
+  for(const ext of ['jpg','png']){
+    const url = `${base}.${ext}`;
+    if(await probeImageUrl(url)) return url;
+  }
+  return '';
+}
+
 async function searchModels(query){
   const q = query.trim().toUpperCase();
   if(q.length < 2) return { tooShort:true, list:[] };
@@ -2108,11 +2304,17 @@ async function searchModels(query){
 function openModelSearchModal(card){
   const overlay = document.getElementById('modalOverlay');
   let debounceTimer = null;
+  let imgManifest = null; // 시리즈코드별 상품 사진(data/series_images.json) - 검색 결과 미리보기·자동 채움에 씀
 
   // 검색 결과/즐겨찾기/최근목록/대체검색 어디서 골랐든 카드에 반영하는 방식은 동일하다.
-  const selectModel = (entry)=>{
+  const selectModel = async (entry)=>{
     card.model = entry.model;
     card.link = entry.link;
+    // 이미 직접 올린 사진이 있으면 덮어쓰지 않고, 비어있을 때만 시리즈코드 사진으로 자동 채운다
+    // (로컬 준비분 우선, 없으면 미스미 CDN에서 실제로 뜨는지 확인 후 채움).
+    if(!card.img && entry.seriesCode){
+      card.img = await resolveSeriesImage(entry.seriesCode);
+    }
     persistCards(); renderGrid();
     pushRecentModel(entry);
     overlay.style.display = 'none'; overlay.innerHTML = '';
@@ -2152,6 +2354,7 @@ function openModelSearchModal(card){
       resultsEl.querySelector('[data-fallback]').onclick = ()=> selectModel({ model: kw, seriesCode:'', seriesName:'', link: misumiSearchUrl(kw) });
       return;
     }
+    imgManifest = imgManifest || await loadSeriesImageManifest();
     resultsEl.innerHTML = list.map(r=>{
       let noteHtml;
       if(r.estimated){
@@ -2161,8 +2364,12 @@ function openModelSearchModal(card){
       } else {
         noteHtml = `<span style="color:var(--text-sub);font-weight:400;">(미분류 상품 · 직접 확인 필요)</span>`;
       }
+      const imgFile = r.seriesCode ? imgManifest[r.seriesCode] : null;
+      const thumbHtml = imgFile
+        ? `<img src="data/images/${encodeURIComponent(imgFile)}" style="width:32px;height:32px;object-fit:contain;border:1px solid var(--gray-line);border-radius:4px;background:#fff;flex:none;">`
+        : `<div style="width:32px;height:32px;flex:none;"></div>`;
       return `<div class="tpl-list-item" style="margin:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;" data-model="${escapeHtml(r.model)}" data-series="${escapeHtml(r.seriesCode)}" data-name="${escapeHtml(r.seriesName||'')}" data-estimated="${r.estimated?'1':'0'}">
-        <span style="overflow:hidden;"><b>${escapeHtml(r.model)}</b> ${noteHtml}</span>
+        <span style="overflow:hidden;display:flex;align-items:center;gap:8px;">${thumbHtml}<span><b>${escapeHtml(r.model)}</b> ${noteHtml}</span></span>
         <button class="btn" data-fav-toggle-row="1" style="flex:none;padding:2px 8px;">${isFavModel(r.model) ? '★' : '☆'}</button>
       </div>`;
     }).join('');
