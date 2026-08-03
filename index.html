@@ -368,39 +368,46 @@
 </div>
 
 <div class="panel" id="mailPanel">
-  <div class="hint">
-    메일 종류(템플릿)를 여러 개 만들어두고 상단 헤더의 드롭다운에서 골라 "Outlook 메일 준비"를 누르면 됩니다. 예: "상품 카드 발송", "방문 전 사전 안내", "방문 후 후속 메일".<br>
-    <b>자동 채움 토큰</b>(직접 입력 안 해도 자동으로 채워짐): {고객사} · {담당자} · {오늘날짜} · {대표상품} · {외건수} · {상품목록}<br>
-    그 외에 <b>{미팅일시}</b>, <b>{논의상품}</b> 처럼 원하는 이름으로 중괄호 토큰을 자유롭게 넣으면, "Outlook 메일 준비"를 누를 때마다 그 값을 입력하는 창이 뜹니다 (한 번 입력하면 다음에도 기본으로 남아있어요).
+  <div style="display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--gray-line);">
+    <div class="mail-subtab active" data-subtab="mailSubTpl" style="font-size:13.5px;font-weight:700;padding:9px 14px;cursor:pointer;border-bottom:2px solid var(--navy);color:var(--navy);">상품 카드 발송 템플릿 (3개)</div>
+    <div class="mail-subtab" data-subtab="mailSubBiz" style="font-size:13.5px;font-weight:700;padding:9px 14px;cursor:pointer;color:var(--text-sub);">업무용 메일 카드</div>
   </div>
-  <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;">
-    <div style="width:220px;flex-shrink:0;">
-      <button class="btn primary" id="btnAddTpl" style="width:100%;margin-bottom:10px;">+ 새 템플릿 추가</button>
-      <div id="tplListWrap"></div>
+
+  <div id="mailSubTpl">
+    <div class="hint">
+      메일 종류(템플릿)를 여러 개 만들어두고 상단 헤더의 드롭다운에서 골라 "Outlook 메일 준비"를 누르면 됩니다. 예: "상품 카드 발송", "방문 전 사전 안내", "방문 후 후속 메일".<br>
+      <b>자동 채움 토큰</b>(직접 입력 안 해도 자동으로 채워짐): {고객사} · {담당자} · {오늘날짜} · {대표상품} · {외건수} · {상품목록}<br>
+      그 외에 <b>{미팅일시}</b>, <b>{논의상품}</b> 처럼 원하는 이름으로 중괄호 토큰을 자유롭게 넣으면, "Outlook 메일 준비"를 누를 때마다 그 값을 입력하는 창이 뜹니다 (한 번 입력하면 다음에도 기본으로 남아있어요).
     </div>
-    <div style="flex:1;min-width:280px;">
-      <div class="field-label">템플릿 이름</div>
-      <input id="tplName" style="width:100%;padding:9px 12px;border:1px solid var(--gray-line);border-radius:8px;font-size:13px;margin-bottom:14px;">
-      <div class="field-label">제목 템플릿</div>
-      <input id="tplSubject" style="width:100%;padding:10px 12px;border:1px solid var(--gray-line);border-radius:8px;font-size:13px;margin-bottom:14px;">
-      <div class="field-label">본문 템플릿</div>
-      <textarea id="tplBody" style="width:100%;height:220px;padding:12px;border:1px solid var(--gray-line);border-radius:8px;font-size:13px;font-family:inherit;"></textarea>
-      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn primary" id="btnSaveTpl">이 템플릿 저장</button>
-        <button class="btn" id="btnDupTpl">복제해서 새로 만들기</button>
-        <button class="btn" id="btnDelTpl" style="color:var(--red);border-color:#f2c7cc;">이 템플릿 삭제</button>
+    <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;">
+      <div style="width:220px;flex-shrink:0;">
+        <button class="btn primary" id="btnAddTpl" style="width:100%;margin-bottom:10px;">+ 새 템플릿 추가</button>
+        <div id="tplListWrap"></div>
+      </div>
+      <div style="flex:1;min-width:280px;">
+        <div class="field-label">템플릿 이름</div>
+        <input id="tplName" style="width:100%;padding:9px 12px;border:1px solid var(--gray-line);border-radius:8px;font-size:13px;margin-bottom:14px;">
+        <div class="field-label">제목 템플릿</div>
+        <input id="tplSubject" style="width:100%;padding:10px 12px;border:1px solid var(--gray-line);border-radius:8px;font-size:13px;margin-bottom:14px;">
+        <div class="field-label">본문 템플릿</div>
+        <textarea id="tplBody" style="width:100%;height:220px;padding:12px;border:1px solid var(--gray-line);border-radius:8px;font-size:13px;font-family:inherit;"></textarea>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn primary" id="btnSaveTpl">이 템플릿 저장</button>
+          <button class="btn" id="btnDupTpl">복제해서 새로 만들기</button>
+          <button class="btn" id="btnDelTpl" style="color:var(--red);border-color:#f2c7cc;">이 템플릿 삭제</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <hr style="margin:26px 0;border:none;border-top:1px solid var(--gray-line);">
-
-  <div class="hint">
-    <b>업무용 메일 카드</b> ([업무용 메일 카드] 탭과 같은 데이터입니다 - 여기서 고쳐도 그 탭에 바로 반영됩니다) - 네고요청·발주요청 등 내부 부서용 반복 업무 메일을 카드로 관리합니다.
+  <div id="mailSubBiz" style="display:none;">
+    <div class="hint">
+      <b>업무용 메일 카드</b> ([업무용 메일 카드] 탭과 완전히 같은 데이터입니다 - 여기서 고쳐도 그 탭에 바로 반영되고, 반대로도 마찬가지입니다) - 네고요청·발주요청 등 내부 부서용 반복 업무 메일을 카드로 관리합니다.
+    </div>
+    <input id="bizMailSearchInSettings" placeholder="카드 제목으로 검색 (예: 견적, 클레임)" style="width:100%;box-sizing:border-box;margin:12px 0;padding:9px 14px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
+    <div class="arch-grid" id="bizMailGridInSettings"></div>
+    <div id="bizMailEditorWrapInSettings" style="margin-top:18px;display:none;"></div>
   </div>
-  <input id="bizMailSearchInSettings" placeholder="카드 제목으로 검색 (예: 견적, 클레임)" style="width:100%;box-sizing:border-box;margin:12px 0;padding:9px 14px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
-  <div class="arch-grid" id="bizMailGridInSettings"></div>
-  <div id="bizMailEditorWrapInSettings" style="margin-top:18px;display:none;"></div>
 </div>
 
 <div class="panel" id="addrPanel">
@@ -3092,7 +3099,32 @@ function renderMailTemplatesTab(){
   document.getElementById('tplName').value = tpl.name;
   document.getElementById('tplSubject').value = tpl.subject;
   document.getElementById('tplBody').value = tpl.body;
+  updateMailSubtabCounts();
 }
+
+/* [메일 설정] 탭 안의 "상품 카드 발송 템플릿" / "업무용 메일 카드" 두 구획을 전환하는 서브탭.
+   서로 다른 데이터(mailTemplates vs bizMailCards)라서 헷갈리기 쉬우니, 탭 이름에 개수까지 보여준다. */
+function updateMailSubtabCounts(){
+  const tplTab = document.querySelector('.mail-subtab[data-subtab="mailSubTpl"]');
+  const bizTab = document.querySelector('.mail-subtab[data-subtab="mailSubBiz"]');
+  if(tplTab) tplTab.textContent = `상품 카드 발송 템플릿 (${mailTemplates.length}개)`;
+  if(bizTab) bizTab.textContent = `업무용 메일 카드 (${bizMailCards.length}개)`;
+}
+document.querySelectorAll('.mail-subtab').forEach(st=>{
+  st.onclick = ()=>{
+    document.querySelectorAll('.mail-subtab').forEach(x=>{
+      x.classList.remove('active');
+      x.style.borderBottom = 'none';
+      x.style.color = 'var(--text-sub)';
+    });
+    st.classList.add('active');
+    st.style.borderBottom = '2px solid var(--navy)';
+    st.style.color = 'var(--navy)';
+    document.getElementById('mailSubTpl').style.display = st.dataset.subtab==='mailSubTpl' ? '' : 'none';
+    document.getElementById('mailSubBiz').style.display = st.dataset.subtab==='mailSubBiz' ? '' : 'none';
+    if(st.dataset.subtab==='mailSubBiz'){ renderAllBizMailGrids(); renderAllBizMailEditors(); }
+  };
+});
 document.getElementById('btnAddTpl').onclick = ()=>{
   const name = prompt('새 템플릿 이름을 입력하세요', '새 템플릿');
   if(!name || !name.trim()) return;
