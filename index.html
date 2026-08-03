@@ -164,15 +164,15 @@
 <div class="tabs">
   <div class="tab active" data-panel="editPanel">카드 편집</div>
   <div class="tab" data-panel="fieldPanel">외근영업</div>
+  <div class="tab" data-panel="bizMailPanel">업무용 메일 카드</div>
   <div class="tab" data-panel="indoorPanel">내근영업</div>
   <div class="tab-sep"></div>
   <div class="tab" data-panel="archPanel">보관함</div>
   <div class="tab" data-panel="sendLogPanel">발송이력</div>
   <div class="tab" data-panel="custPanel">고객사별</div>
   <div class="tab-sep"></div>
-  <div class="tab" data-panel="mailPanel">메일 설정</div>
   <div class="tab" data-panel="addrPanel">메일주소록</div>
-  <div class="tab" data-panel="bizMailPanel">업무용 메일 카드</div>
+  <div class="tab" data-panel="mailPanel">메일 설정</div>
   <div class="tab-sep"></div>
   <div class="tab" data-panel="sharePanel">공유 / 엑셀 연동</div>
 </div>
@@ -206,7 +206,8 @@
   <div id="libChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
   <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
     <span id="libSelCount" style="font-size:12.5px;color:var(--text-sub);">선택 0개</span>
-    <button class="btn primary" id="btnLibAddSelected">선택한 카드 편집에 담기</button>
+    <button class="btn primary" id="btnLibSendSelected">선택한 카드 함께 보내기</button>
+    <button class="btn" id="btnLibAddSelected">선택한 카드 편집에 담기</button>
   </div>
   <div class="arch-grid" id="libGrid"></div>
 
@@ -391,6 +392,15 @@
       </div>
     </div>
   </div>
+
+  <hr style="margin:26px 0;border:none;border-top:1px solid var(--gray-line);">
+
+  <div class="hint">
+    <b>업무용 메일 카드</b> ([업무용 메일 카드] 탭과 같은 데이터입니다 - 여기서 고쳐도 그 탭에 바로 반영됩니다) - 네고요청·발주요청 등 내부 부서용 반복 업무 메일을 카드로 관리합니다.
+  </div>
+  <input id="bizMailSearchInSettings" placeholder="카드 제목으로 검색 (예: 견적, 클레임)" style="width:100%;box-sizing:border-box;margin:12px 0;padding:9px 14px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
+  <div class="arch-grid" id="bizMailGridInSettings"></div>
+  <div id="bizMailEditorWrapInSettings" style="margin-top:18px;display:none;"></div>
 </div>
 
 <div class="panel" id="addrPanel">
@@ -406,7 +416,10 @@
       <button class="btn" id="btnCancelEditAddr" style="display:none;">취소</button>
     </div>
   </div>
-  <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px;flex-wrap:wrap;gap:8px;">
+  <div style="margin:14px 0 8px;">
+    <input id="addrSearch" placeholder="회사명·담당자명 일부만 입력해도 검색됨" style="width:100%;box-sizing:border-box;padding:9px 14px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 8px;flex-wrap:wrap;gap:8px;">
     <span style="font-size:12.5px;color:var(--text-sub);" id="addrSelCount">선택 0곳</span>
     <button class="btn primary" id="btnBulkPrepMail">선택한 고객에게 일괄 메일 준비</button>
   </div>
@@ -582,15 +595,22 @@ let addrBook = JSON.parse(localStorage.getItem(LS_ADDRBOOK) || 'null') || [];
 function persistAddrBook(){ localStorage.setItem(LS_ADDRBOOK, JSON.stringify(addrBook)); }
 let addrSelected = new Set();
 let editingAddrId = null; // 지금 "새 주소록 추가" 폼이 어떤 기존 주소록을 수정 중인지 (null이면 신규 추가 모드)
+function getVisibleAddrBook(){
+  const q = (document.getElementById('addrSearch').value || '').trim().toLowerCase();
+  if(!q) return addrBook;
+  return addrBook.filter(a=> String(a.name||'').toLowerCase().includes(q) || String(a.contact||'').toLowerCase().includes(q));
+}
 function renderAddrBook(){
   const wrap = document.getElementById('addrListWrap');
   addrSelected = new Set(Array.from(addrSelected).filter(id=>addrBook.some(a=>a.id===id)));
   updateAddrSelCount();
   if(addrBook.length===0){ wrap.innerHTML = '<div style="color:#9aa0a6;font-size:13px;">등록된 주소록이 없습니다.</div>'; return; }
+  const visible = getVisibleAddrBook();
+  if(visible.length===0){ wrap.innerHTML = '<div style="color:#9aa0a6;font-size:13px;">검색 결과가 없습니다.</div>'; return; }
   wrap.innerHTML = `<table class="log-table"><thead><tr>
       <th></th><th>회사명</th><th>담당자</th><th>직책</th><th>이메일</th><th></th>
     </tr></thead><tbody>
-    ${addrBook.map(a=>`
+    ${visible.map(a=>`
       <tr data-id="${a.id}">
         <td><input type="checkbox" class="addrChk" ${addrSelected.has(a.id)?'checked':''}></td>
         <td class="customer">${escapeHtml(a.name)}</td>
@@ -635,6 +655,7 @@ function updateAddrSelCount(){
   const el = document.getElementById('addrSelCount');
   if(el) el.textContent = `선택 ${addrSelected.size}곳`;
 }
+document.getElementById('addrSearch').oninput = renderAddrBook;
 function resetAddrForm(){
   editingAddrId = null;
   document.getElementById('addrName').value = '';
@@ -719,7 +740,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
     if(tab.dataset.panel==='fieldPanel'){ renderFieldGrid(); renderGallery(); renderLibChips(); renderLibGrid(); }
     if(tab.dataset.panel==='indoorPanel') renderIndoorGrid();
     if(tab.dataset.panel==='archPanel') renderArchive();
-    if(tab.dataset.panel==='mailPanel') renderMailTemplatesTab();
+    if(tab.dataset.panel==='mailPanel'){ renderMailTemplatesTab(); renderAllBizMailGrids(); renderAllBizMailEditors(); }
     if(tab.dataset.panel==='sendLogPanel') renderSendLog();
     if(tab.dataset.panel==='addrPanel') renderAddrBook();
     if(tab.dataset.panel==='custPanel') renderCustList();
@@ -1637,6 +1658,7 @@ function renderLibGrid(){
         <div class="d">${escapeHtml(a.config.category||'기타')}</div>
       </div>
       <div class="btns">
+        <button data-act="sendOne" style="box-shadow:0 0 0 2px var(--navy) inset;">이 카드로 보내기</button>
         <button data-act="addOne">편집에 담기</button>
       </div>
     </div>
@@ -1644,6 +1666,7 @@ function renderLibGrid(){
   wrap.querySelectorAll('.arch-item').forEach(el=>{
     const id = el.dataset.id;
     const a = archive.find(x=>x.id===id);
+    el.querySelector('[data-act="sendOne"]').onclick = ()=> openSendFlowModal(a.config);
     el.querySelector('.sel-check').onchange = (e)=>{
       if(e.target.checked) libSelected.add(id); else libSelected.delete(id);
       el.classList.toggle('selected', e.target.checked);
@@ -1662,6 +1685,11 @@ document.getElementById('btnLibAddSelected').onclick = ()=>{
   targets.forEach(a=> cards.push(Object.assign({}, a.config, { id: uid() })));
   persistCards();
   toast(`${targets.length}개 카드를 [카드 편집]에 담았습니다.`);
+};
+document.getElementById('btnLibSendSelected').onclick = ()=>{
+  const targets = archive.filter(a=>libSelected.has(a.id));
+  if(targets.length===0){ toast('보낼 카드를 먼저 선택하세요.'); return; }
+  openSendFlowModal(targets.map(a=>a.config));
 };
 
 function renderFieldGrid(){
@@ -2854,40 +2882,63 @@ async function buildMailFromTemplate(tpl, customerOverride, cardListOverride){
   return { subject: fillAllTokens(tpl.subject, values), body: fillAllTokens(tpl.body, values) };
 }
 
-/* ===================== 카드 1개 → 고객 선택 → 방문전/후 선택 → Outlook =====================
-   [카드 편집]의 각 카드에 있는 "이 카드로 보내기" 버튼에서 시작한다.
+/* ===================== 카드(1개 또는 여러 개) → 고객 선택 → 방문전/후 선택 → Outlook =====================
+   [카드 편집]의 "이 카드로 보내기", [외근영업] 라이브러리의 "이 카드로 보내기"/"선택한 카드 함께 보내기"에서 시작한다.
    1) 고객 선택 팝업: "주소록에서 선택" / "직접 입력" 두 탭
    2) 방문 전/방문 후 선택
-   3) 해당 카드 하나만 클립보드에 복사 + mailto로 Outlook 새 메일 열기 (기존 "Outlook 메일 준비"와 동일한 안전한 방식) */
+   3) 해당 카드(들)만 클립보드에 복사 + mailto로 Outlook 새 메일 열기 (기존 "Outlook 메일 준비"와 동일한 안전한 방식) */
 function findTemplateByNameContains(str){
   return mailTemplates.find(t=> (t.name||'').includes(str));
 }
-async function sendSingleCardMail(c, customerName, customerEmail, timing){
+async function writeSpecificCardsToClipboard(cardList){
+  const rowHtml = cardList.map(c=>`<td style="padding:0 8px;vertical-align:top;">${cardHtml(c)}</td>`).join('');
+  const fullHtml = `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>${rowHtml}</tr></table>`;
+  const plainText = cardList.map(c=>`${c.name} (형번:${c.model}) - ${fmtWon(c.salePrice)}${c.link ? ' / ' + c.link : ''}`).join('\n');
+  await navigator.clipboard.write([new ClipboardItem({
+    'text/html': new Blob([fullHtml], {type:'text/html'}),
+    'text/plain': new Blob([plainText], {type:'text/plain'})
+  })]);
+}
+/* Outlook은 브라우저가 직접 내용을 채워줄 수 없는 "다른 프로그램"이라, mailto 링크는 받는사람·제목·인사말 텍스트까지만
+   자동으로 채울 수 있고, 상품 카드(이미지가 포함된 HTML)는 넣을 수 없다. 그래서 카드는 항상 클립보드에 복사해두고
+   사람이 직접 Ctrl+V로 붙여넣어야 한다 - 이 앱의 다른 모든 발송 버튼("Outlook 메일 준비" 등)도 동일한 방식이다.
+   토스트 알림은 2.4초면 사라지고, 그 사이 실제로 Outlook 창으로 화면이 전환되면 못 보고 지나치기 쉬워서
+   메일창을 연 "뒤"에 확인(OK)을 눌러야 없어지는 모달로 다시 한번 안내한다. */
+async function sendCardsMail(cardList, customerName, customerEmail, timing){
   const tpl = timing==='before' ? findTemplateByNameContains('방문 전') : findTemplateByNameContains('방문 후');
   if(!tpl){ toast('[메일 설정] 탭에 "방문 전"/"방문 후" 템플릿이 없습니다. 먼저 만들어주세요.'); return; }
-  const mail = await buildMailFromTemplate(tpl, customerName, [c]);
+  const mail = await buildMailFromTemplate(tpl, customerName, cardList);
   if(mail===null) return; // 커스텀 토큰 입력창에서 취소함
-  try{
-    const html = cardHtml(c);
-    const text = `${c.name} (형번:${c.model}) - ${fmtWon(c.salePrice)}${c.link ? ' / ' + c.link : ''}`;
-    await navigator.clipboard.write([new ClipboardItem({
-      'text/html': new Blob([html], {type:'text/html'}),
-      'text/plain': new Blob([text], {type:'text/plain'})
-    })]);
-  }catch(e){ toast('카드 복사 실패: ' + e.message); return; }
+  try{ await writeSpecificCardsToClipboard(cardList); }
+  catch(e){ toast('카드 복사 실패: ' + e.message); return; }
   logSend(customerName, tpl.name);
   const mailto = `mailto:${encodeURIComponent(customerEmail||'')}?subject=${encodeURIComponent(mail.subject)}&body=${encodeURIComponent(mail.body)}`;
   const a = document.createElement('a');
   a.href = mailto; document.body.appendChild(a); a.click(); a.remove();
-  toast('메일 창이 열렸습니다. 본문 안내문 아래에 Ctrl+V로 카드를 붙여넣으세요.');
+  showPasteReminderModal(cardList.length);
 }
-function openSendFlowModal(c){
+function showPasteReminderModal(cardCount){
   const overlay = document.getElementById('modalOverlay');
+  overlay.innerHTML = `<div class="modal-box" style="max-width:340px;text-align:center;">
+    <div style="font-size:28px;margin-bottom:4px;">📋</div>
+    <h3 style="text-align:center;">Outlook 메일 창이 열렸습니다</h3>
+    <p style="text-align:center;">카드 ${cardCount}개가 클립보드에 복사되어 있습니다.<br>
+      Outlook 창으로 이동해서 본문 안내문 아래에 <b>Ctrl+V</b>를 눌러 카드를 붙여넣으세요.<br>
+      (브라우저는 다른 프로그램 창에 직접 붙여넣을 수 없어 이 마지막 한 번은 직접 눌러야 합니다.)</p>
+    <button class="btn primary" id="pasteReminderOk" style="width:100%;">확인했습니다</button>
+  </div>`;
+  overlay.style.display = 'flex';
+  overlay.querySelector('#pasteReminderOk').onclick = ()=>{ overlay.style.display='none'; overlay.innerHTML=''; };
+}
+function openSendFlowModal(cardOrList){
+  const overlay = document.getElementById('modalOverlay');
+  const cardList = Array.isArray(cardOrList) ? cardOrList : [cardOrList];
+  const titleText = cardList.length>1 ? `카드 ${cardList.length}개를 함께` : `"${escapeHtml(cardList[0].name)}" 카드를`;
   let activeTab = 'book';
 
   function shellHtml(){
     return `<div class="modal-box" style="width:460px;">
-      <h3>"${escapeHtml(c.name)}" 카드를 보낼 고객을 선택하세요</h3>
+      <h3>${titleText} 보낼 고객을 선택하세요</h3>
       <div style="display:flex;gap:6px;margin-bottom:12px;border-bottom:1px solid var(--gray-line);">
         <span class="sendflow-tab" data-tab="book" style="font-size:13px;font-weight:700;padding:8px 6px;cursor:pointer;${activeTab==='book'?'border-bottom:2px solid var(--navy);color:var(--navy);':'color:var(--text-sub);'}">주소록에서 선택</span>
         <span class="sendflow-tab" data-tab="manual" style="font-size:13px;font-weight:700;padding:8px 6px;cursor:pointer;${activeTab==='manual'?'border-bottom:2px solid var(--navy);color:var(--navy);':'color:var(--text-sub);'}">직접 입력</span>
@@ -2978,10 +3029,11 @@ function openSendFlowModal(c){
   }
 
   function renderTimingStep(customerName, customerEmail){
+    const cardLabel = cardList.length>1 ? `카드 ${cardList.length}개(${cardList.map(x=>x.name).join(', ')})` : `"${escapeHtml(cardList[0].name)}" 카드`;
     overlay.innerHTML = `<div class="modal-box" style="width:420px;text-align:center;">
       <p style="text-align:center;font-size:13px;color:var(--text-sub);line-height:1.6;">
         <b style="color:var(--navy);">${escapeHtml(customerName)}</b>${customerEmail?` · ${escapeHtml(customerEmail)}`:''}<br>
-        "${escapeHtml(c.name)}" 카드를 언제 보내는 메일인가요?
+        ${cardLabel}를 언제 보내는 메일인가요?
       </p>
       <div style="display:flex;gap:8px;margin-top:14px;">
         <button class="btn primary" id="sfTimingBefore" style="flex:1;">방문 전 메일</button>
@@ -2992,11 +3044,11 @@ function openSendFlowModal(c){
     overlay.querySelector('#sfTimingCancel').onclick = ()=>{ overlay.style.display='none'; overlay.innerHTML=''; };
     overlay.querySelector('#sfTimingBefore').onclick = async ()=>{
       overlay.style.display='none'; overlay.innerHTML='';
-      await sendSingleCardMail(c, customerName, customerEmail, 'before');
+      await sendCardsMail(cardList, customerName, customerEmail, 'before');
     };
     overlay.querySelector('#sfTimingAfter').onclick = async ()=>{
       overlay.style.display='none'; overlay.innerHTML='';
-      await sendSingleCardMail(c, customerName, customerEmail, 'after');
+      await sendCardsMail(cardList, customerName, customerEmail, 'after');
     };
   }
 
@@ -3121,94 +3173,114 @@ function bizMailTokenValues(){
   const customer = getCustomer() || '';
   return { '고객사명': customer, '고객사': customer, '담당자': getRep(), '오늘날짜': new Date().toLocaleDateString('ko-KR') };
 }
-function renderBizMailGrid(){
-  const wrap = document.getElementById('bizMailGrid');
+/* [업무용 메일 카드] 탭과 [메일 설정] 탭 안 두 곳에서 같은 bizMailCards 데이터를 보여주고 편집한다.
+   두 군데의 DOM id가 겹치면 안 되므로, 그리드/편집기 내부 요소는 id 대신 class로 wrap 안에서만 찾도록 하고,
+   "어느 화면에 그릴지"는 컨테이너 id 목록(BIZ_MAIL_GRID_TARGETS/EDITOR_TARGETS)으로 관리한다.
+   한쪽에서 저장/삭제/추가하면 renderAllBizMailGrids()+renderAllBizMailEditors()로 양쪽 모두 다시 그려서 항상 동기화된다. */
+const BIZ_MAIL_GRID_TARGETS = [
+  { gridId:'bizMailGrid', searchId:'bizMailSearch' },
+  { gridId:'bizMailGridInSettings', searchId:'bizMailSearchInSettings' }
+];
+const BIZ_MAIL_EDITOR_TARGETS = ['bizMailEditorWrap', 'bizMailEditorWrapInSettings'];
+
+function renderBizMailGridInto(gridId, searchId){
+  const wrap = document.getElementById(gridId);
   if(!wrap) return;
-  const q = (document.getElementById('bizMailSearch').value || '').trim().toLowerCase();
+  const searchEl = document.getElementById(searchId);
+  const q = (searchEl ? searchEl.value : '').trim().toLowerCase();
   const list = bizMailCards.filter(b=> !q || String(b.title||'').toLowerCase().includes(q));
   wrap.innerHTML = list.map(b=>`
     <div class="bizmail-item" data-id="${b.id}" style="background:#fff;border:1px solid ${editingBizId===b.id ? 'var(--navy)' : 'var(--gray-line)'};border-radius:10px;padding:12px;">
       <div style="font-size:18px;">${b.icon||'✉️'}</div>
       <div style="font-size:13px;font-weight:700;margin:6px 0 2px;">${escapeHtml(b.title)}</div>
       <div style="font-size:11.5px;color:var(--text-sub);margin:0 0 8px;min-height:16px;">${escapeHtml(b.desc||'')}</div>
-      <button class="btn" data-act="use" style="width:100%;font-size:12px;">편집 / 사용</button>
+      <button class="btn bizmail-use" style="width:100%;font-size:12px;">편집 / 사용</button>
     </div>
   `).join('') + `
-    <div id="bizMailAddNew" style="background:#f8f9fa;border:1px dashed var(--gray-line);border-radius:10px;padding:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer;min-height:88px;">
+    <div class="bizmail-addnew" style="background:#f8f9fa;border:1px dashed var(--gray-line);border-radius:10px;padding:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer;min-height:88px;">
       <div style="font-size:18px;color:var(--text-sub);">＋</div>
       <div style="font-size:12px;color:var(--text-sub);margin-top:6px;">나만의 메일 카드 추가</div>
     </div>`;
   wrap.querySelectorAll('.bizmail-item').forEach(el=>{
-    el.querySelector('[data-act="use"]').onclick = ()=>{ editingBizId = el.dataset.id; renderBizMailGrid(); renderBizMailEditor(); };
+    el.querySelector('.bizmail-use').onclick = ()=>{ editingBizId = el.dataset.id; renderAllBizMailGrids(); renderAllBizMailEditors(); };
   });
-  const addNewEl = document.getElementById('bizMailAddNew');
+  const addNewEl = wrap.querySelector('.bizmail-addnew');
   if(addNewEl) addNewEl.onclick = ()=>{
     const title = prompt('새 메일 카드 제목을 입력하세요', '새 메일 카드');
     if(!title || !title.trim()) return;
     const b = { id: uid(), title: title.trim(), desc:'', icon:'✉️', subject:'', body:'' };
     bizMailCards.push(b); persistBizMail();
     editingBizId = b.id;
-    renderBizMailGrid(); renderBizMailEditor();
+    renderAllBizMailGrids(); renderAllBizMailEditors();
   };
 }
-function renderBizMailEditor(){
-  const wrap = document.getElementById('bizMailEditorWrap');
+function renderAllBizMailGrids(){ BIZ_MAIL_GRID_TARGETS.forEach(t=> renderBizMailGridInto(t.gridId, t.searchId)); }
+
+function renderBizMailEditorInto(wrapId){
+  const wrap = document.getElementById(wrapId);
   if(!wrap) return;
   if(!editingBizId){ wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
   const b = bizMailCards.find(x=>x.id===editingBizId);
-  if(!b){ editingBizId = null; wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+  if(!b){ wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
   wrap.style.display = 'block';
   wrap.innerHTML = `
     <div class="share-box">
       <h3>메일 카드 편집: ${escapeHtml(b.title)}</h3>
-      <div class="modal-field"><label>카드 제목</label><input id="bizTitle" value="${escapeHtml(b.title)}"></div>
-      <div class="modal-field"><label>카드 설명 (목록에 작게 표시)</label><input id="bizDesc" value="${escapeHtml(b.desc||'')}"></div>
-      <div class="modal-field"><label>메일 제목</label><input id="bizSubject" value="${escapeHtml(b.subject||'')}"></div>
-      <div class="modal-field"><label>메일 본문</label><textarea id="bizBody" style="min-height:160px;">${escapeHtml(b.body||'')}</textarea></div>
+      <div class="modal-field"><label>카드 제목</label><input class="bizTitle" value="${escapeHtml(b.title)}"></div>
+      <div class="modal-field"><label>카드 설명 (목록에 작게 표시)</label><input class="bizDesc" value="${escapeHtml(b.desc||'')}"></div>
+      <div class="modal-field"><label>메일 제목</label><input class="bizSubject" value="${escapeHtml(b.subject||'')}"></div>
+      <div class="modal-field"><label>메일 본문</label><textarea class="bizBody" style="min-height:160px;">${escapeHtml(b.body||'')}</textarea></div>
       <p style="font-size:11.5px;color:var(--text-sub);">본문/제목에 {고객사명}, {담당자}, {오늘날짜}를 적어두면 "이 내용으로 메일 열기"를 누를 때 상단 고객사명·담당자 칸의 값으로 자동 치환됩니다.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn primary" id="bizSave">저장</button>
-        <button class="btn" id="bizUse">이 내용으로 메일 열기</button>
-        <button class="btn" id="bizDup">복제</button>
-        <button class="btn" id="bizDel" style="color:var(--red);border-color:#f2c7cc;">삭제</button>
+        <button class="btn primary bizSave">저장</button>
+        <button class="btn bizUse">이 내용으로 메일 열기</button>
+        <button class="btn bizDup">복제</button>
+        <button class="btn bizDel" style="color:var(--red);border-color:#f2c7cc;">삭제</button>
       </div>
     </div>
   `;
-  document.getElementById('bizSave').onclick = ()=>{
-    const title = document.getElementById('bizTitle').value.trim();
+  wrap.querySelector('.bizSave').onclick = ()=>{
+    const title = wrap.querySelector('.bizTitle').value.trim();
     if(!title){ toast('카드 제목은 필수입니다.'); return; }
     b.title = title;
-    b.desc = document.getElementById('bizDesc').value.trim();
-    b.subject = document.getElementById('bizSubject').value;
-    b.body = document.getElementById('bizBody').value;
+    b.desc = wrap.querySelector('.bizDesc').value.trim();
+    b.subject = wrap.querySelector('.bizSubject').value;
+    b.body = wrap.querySelector('.bizBody').value;
     persistBizMail();
-    renderBizMailGrid(); renderBizMailEditor();
+    renderAllBizMailGrids(); renderAllBizMailEditors();
     toast('메일 카드가 저장되었습니다.');
   };
-  document.getElementById('bizUse').onclick = ()=>{
+  wrap.querySelector('.bizUse').onclick = ()=>{
     const values = bizMailTokenValues();
-    const subject = fillAllTokens(document.getElementById('bizSubject').value, values);
-    const body = fillAllTokens(document.getElementById('bizBody').value, values);
+    const subject = fillAllTokens(wrap.querySelector('.bizSubject').value, values);
+    const body = fillAllTokens(wrap.querySelector('.bizBody').value, values);
     const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     const a = document.createElement('a');
     a.href = mailto; document.body.appendChild(a); a.click(); a.remove();
     toast('메일 창이 열렸습니다.');
   };
-  document.getElementById('bizDup').onclick = ()=>{
+  wrap.querySelector('.bizDup').onclick = ()=>{
     const copy = Object.assign({}, b, { id: uid(), title: b.title + ' 사본' });
     bizMailCards.push(copy); persistBizMail();
     editingBizId = copy.id;
-    renderBizMailGrid(); renderBizMailEditor();
+    renderAllBizMailGrids(); renderAllBizMailEditors();
   };
-  document.getElementById('bizDel').onclick = ()=>{
+  wrap.querySelector('.bizDel').onclick = ()=>{
     if(!confirm('이 메일 카드를 삭제할까요?')) return;
     bizMailCards = bizMailCards.filter(x=>x.id!==b.id);
     persistBizMail();
     editingBizId = null;
-    renderBizMailGrid(); renderBizMailEditor();
+    renderAllBizMailGrids(); renderAllBizMailEditors();
   };
 }
-document.getElementById('bizMailSearch').oninput = renderBizMailGrid;
+function renderAllBizMailEditors(){ BIZ_MAIL_EDITOR_TARGETS.forEach(renderBizMailEditorInto); }
+
+// 기존 코드/탭 전환 핸들러와의 호환을 위한 별칭 (두 화면 모두 다시 그린다)
+function renderBizMailGrid(){ renderAllBizMailGrids(); }
+function renderBizMailEditor(){ renderAllBizMailEditors(); }
+
+document.getElementById('bizMailSearch').oninput = renderAllBizMailGrids;
+document.getElementById('bizMailSearchInSettings').oninput = renderAllBizMailGrids;
 
 /* "Outlook 메일 준비"를 누르면 먼저 예/아니오로 방식을 고르게 한다.
    - 예(자동): 기존과 동일하게 메일창을 자동으로 열고(mailto), 카드를 클립보드에 복사해둔다 - Ctrl+V만 하면 됨.
