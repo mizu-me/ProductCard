@@ -150,6 +150,7 @@
   </div>
   <div class="top-actions">
     <input id="repName" placeholder="담당자(내 이름)" style="padding:9px 12px;border-radius:8px;border:none;font-size:13px;width:110px;">
+    <button class="btn ghost" id="btnResetRepName" title="다른 사람으로 시작하기 (이름 다시 입력)" style="padding:9px 8px;font-size:12px;">↻</button>
     <input id="customerName" placeholder="고객사명 (이 발송건)" list="taListDatalist" style="padding:9px 12px;border-radius:8px;border:none;font-size:13px;width:150px;">
     <datalist id="taListDatalist"></datalist>
     <input id="customerEmail" placeholder="고객 이메일 (선택)" style="padding:9px 12px;border-radius:8px;border:none;font-size:13px;width:170px;">
@@ -179,10 +180,12 @@
 
 <div class="panel show" id="editPanel">
   <div class="hint">카드의 이미지·배지·텍스트를 클릭해 직접 수정하세요. 이미지는 3가지 방법으로 넣을 수 있습니다: ① <b>파일선택</b> 버튼으로 PC 사진 업로드, ② <b>이미지URL</b> 버튼에 kr.misumi-ec.com 상품페이지에서 복사한 이미지 주소 붙여넣기, ③ 이미지 칸을 클릭한 뒤 캡처한 화면을 그대로 <b>Ctrl+V</b>. 완성되면 상단 "이미지로 복사"로 Outlook에 붙여넣거나, 보관함 탭에서 저장해 다른 사람과 공유하세요.<br>
-  카드가 여러 개일 때는 각 카드 위의 체크박스로 <b>"이미지로 복사" / "Outlook 메일 준비" / "코드 생성" / "발송 전 체크리스트"에 포함할 카드만 골라</b> 쓸 수 있습니다 (체크 해제한 카드는 흐리게 표시되고, 이 화면에 그대로 남아있을 뿐 전송에서만 제외됩니다).</div>
+  카드가 여러 개일 때는 각 카드 위의 체크박스로 <b>"이미지로 복사" / "Outlook 메일 준비" / "코드 생성" / "발송 전 체크리스트"에 포함할 카드만 골라</b> 쓸 수 있습니다 (체크 해제한 카드는 흐리게 표시되고, 이 화면에 그대로 남아있을 뿐 전송에서만 제외됩니다). 카드가 너무 많아졌을 때는 같은 체크박스로 <b>"체크된 카드 보관함으로 이동" / "체크된 카드 삭제"</b>로 한꺼번에 정리할 수 있습니다.</div>
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
     <button class="btn" id="btnSelectAllCards">전체 선택</button>
     <button class="btn" id="btnSelectNoneCards">전체 해제</button>
+    <button class="btn primary" id="btnBulkArchive">체크된 카드 보관함으로 이동</button>
+    <button class="btn" id="btnBulkDelete" style="color:var(--red);border-color:#f2c7cc;">체크된 카드 삭제</button>
     <span id="cardSelCount" style="font-size:12.5px;color:var(--text-sub);"></span>
   </div>
   <div class="grid" id="grid"></div>
@@ -284,6 +287,9 @@
     <select id="indoorManagerFilter" style="padding:9px 10px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
       <option value="">담당내근 (전체)</option>
     </select>
+    <select id="indoorKindFilter" style="padding:9px 10px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
+      <option value="">구분 (전체)</option>
+    </select>
     <select id="indoorSendFilter" style="padding:9px 10px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
       <option value="">발송가부 (전체)</option>
       <option value="ok">발송가능만</option>
@@ -368,45 +374,46 @@
 </div>
 
 <div class="panel" id="mailPanel">
-  <div style="display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--gray-line);">
-    <div class="mail-subtab active" data-subtab="mailSubTpl" style="font-size:13.5px;font-weight:700;padding:9px 14px;cursor:pointer;border-bottom:2px solid var(--navy);color:var(--navy);">상품 카드 발송 템플릿 (3개)</div>
-    <div class="mail-subtab" data-subtab="mailSubBiz" style="font-size:13.5px;font-weight:700;padding:9px 14px;cursor:pointer;color:var(--text-sub);">업무용 메일 카드</div>
+  <div class="hint">
+    왼쪽 목록에서 메일 종류를 고르거나 새로 만들어 편집하세요. <b>상품 카드 발송용</b>은 상단 헤더의 "메일 종류" 드롭다운과 카드의 "이 카드로 보내기"(방문전/방문후)에서 쓰이고,
+    <b>업무용</b>은 [업무용 메일 카드] 탭에서 카드 형태로 골라 쓰는 내부 업무 메일입니다 (그 탭에서는 제목/본문만 빠르게 고치는 간편 수정만 되고, 아이콘·설명 같은 세부 설정은 여기서 합니다). 데이터는 완전히 같은 걸 공유해서 어디서 고쳐도 서로 바로 반영됩니다.<br>
+    <b>자동 채움 토큰</b>(직접 입력 안 해도 자동으로 채워짐): {고객사} · {담당자} · {오늘날짜} · {대표상품} · {외건수} · {상품목록} (업무용 카드는 {고객사명}도 동일하게 지원)<br>
+    그 외에 <b>{미팅일시}</b>, <b>{논의상품}</b> 처럼 원하는 이름으로 중괄호 토큰을 자유롭게 넣으면, 사용할 때마다 그 값을 입력하는 창이 뜹니다 (한 번 입력하면 다음에도 기본으로 남아있어요).
   </div>
-
-  <div id="mailSubTpl">
-    <div class="hint">
-      메일 종류(템플릿)를 여러 개 만들어두고 상단 헤더의 드롭다운에서 골라 "Outlook 메일 준비"를 누르면 됩니다. 예: "상품 카드 발송", "방문 전 사전 안내", "방문 후 후속 메일".<br>
-      <b>자동 채움 토큰</b>(직접 입력 안 해도 자동으로 채워짐): {고객사} · {담당자} · {오늘날짜} · {대표상품} · {외건수} · {상품목록}<br>
-      그 외에 <b>{미팅일시}</b>, <b>{논의상품}</b> 처럼 원하는 이름으로 중괄호 토큰을 자유롭게 넣으면, "Outlook 메일 준비"를 누를 때마다 그 값을 입력하는 창이 뜹니다 (한 번 입력하면 다음에도 기본으로 남아있어요).
-    </div>
-    <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;">
-      <div style="width:220px;flex-shrink:0;">
-        <button class="btn primary" id="btnAddTpl" style="width:100%;margin-bottom:10px;">+ 새 템플릿 추가</button>
-        <div id="tplListWrap"></div>
+  <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;">
+    <div style="width:230px;flex-shrink:0;">
+      <div style="display:flex;gap:6px;margin-bottom:10px;">
+        <button class="btn primary" id="btnAddTpl" style="flex:1;font-size:12px;padding:9px 6px;">+ 발송용 템플릿</button>
+        <button class="btn" id="btnAddBizTpl" style="flex:1;font-size:12px;padding:9px 6px;">+ 업무용 카드</button>
       </div>
-      <div style="flex:1;min-width:280px;">
-        <div class="field-label">템플릿 이름</div>
-        <input id="tplName" style="width:100%;padding:9px 12px;border:1px solid var(--gray-line);border-radius:8px;font-size:13px;margin-bottom:14px;">
-        <div class="field-label">제목 템플릿</div>
-        <input id="tplSubject" style="width:100%;padding:10px 12px;border:1px solid var(--gray-line);border-radius:8px;font-size:13px;margin-bottom:14px;">
-        <div class="field-label">본문 템플릿</div>
-        <textarea id="tplBody" style="width:100%;height:220px;padding:12px;border:1px solid var(--gray-line);border-radius:8px;font-size:13px;font-family:inherit;"></textarea>
-        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn primary" id="btnSaveTpl">이 템플릿 저장</button>
-          <button class="btn" id="btnDupTpl">복제해서 새로 만들기</button>
-          <button class="btn" id="btnDelTpl" style="color:var(--red);border-color:#f2c7cc;">이 템플릿 삭제</button>
+      <div id="tplListWrap"></div>
+    </div>
+    <div style="flex:1;min-width:280px;">
+      <div class="field-label" id="tplNameLabel">템플릿 이름</div>
+      <input id="tplName" style="width:100%;padding:9px 12px;border:1px solid var(--gray-line);border-radius:8px;font-size:13px;margin-bottom:14px;">
+      <div id="bizFieldsWrap" style="display:none;gap:12px;">
+        <div style="display:flex;gap:12px;">
+          <div style="flex:1;">
+            <div class="field-label">아이콘 (이모지 1개)</div>
+            <input id="tplIcon" style="width:100%;padding:9px 12px;border:1px solid var(--gray-line);border-radius:8px;font-size:13px;margin-bottom:14px;">
+          </div>
+          <div style="flex:2;">
+            <div class="field-label">카드 설명 (목록에 작게 표시)</div>
+            <input id="tplDesc" style="width:100%;padding:9px 12px;border:1px solid var(--gray-line);border-radius:8px;font-size:13px;margin-bottom:14px;">
+          </div>
         </div>
       </div>
+      <div class="field-label">제목 템플릿</div>
+      <input id="tplSubject" style="width:100%;padding:10px 12px;border:1px solid var(--gray-line);border-radius:8px;font-size:13px;margin-bottom:14px;">
+      <div class="field-label">본문 템플릿</div>
+      <textarea id="tplBody" style="width:100%;height:220px;padding:12px;border:1px solid var(--gray-line);border-radius:8px;font-size:13px;font-family:inherit;"></textarea>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn primary" id="btnSaveTpl">저장</button>
+        <button class="btn" id="btnUseBizTpl" style="display:none;">이 내용으로 메일 열기</button>
+        <button class="btn" id="btnDupTpl">복제해서 새로 만들기</button>
+        <button class="btn" id="btnDelTpl" style="color:var(--red);border-color:#f2c7cc;">삭제</button>
+      </div>
     </div>
-  </div>
-
-  <div id="mailSubBiz" style="display:none;">
-    <div class="hint">
-      <b>업무용 메일 카드</b> ([업무용 메일 카드] 탭과 완전히 같은 데이터입니다 - 여기서 고쳐도 그 탭에 바로 반영되고, 반대로도 마찬가지입니다) - 네고요청·발주요청 등 내부 부서용 반복 업무 메일을 카드로 관리합니다.
-    </div>
-    <input id="bizMailSearchInSettings" placeholder="카드 제목으로 검색 (예: 견적, 클레임)" style="width:100%;box-sizing:border-box;margin:12px 0;padding:9px 14px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
-    <div class="arch-grid" id="bizMailGridInSettings"></div>
-    <div id="bizMailEditorWrapInSettings" style="margin-top:18px;display:none;"></div>
   </div>
 </div>
 
@@ -564,20 +571,21 @@ function getRep(){ return repInput.value.trim(); }
 
 /* 이 컴퓨터에서 처음 쓸 때 이름부터 물어보는 가벼운 "게이트" (진짜 로그인/인증 아님).
    한 번 입력하면 다시 뜨지 않고, 이후에는 상단 "담당자(내 이름)" 칸에서 언제든 바꿀 수 있다. */
-function showRepGateIfNeeded(){
-  if(getRep()) return;
+function showRepGateIfNeeded(force){
+  if(!force && getRep()) return;
   const overlay = document.getElementById('modalOverlay');
   overlay.innerHTML = `<div class="modal-box" style="max-width:320px;text-align:center;">
     <div style="font-size:30px;color:var(--navy);margin-bottom:4px;">👤</div>
     <h3 style="text-align:center;">이름을 입력해주세요</h3>
     <p style="text-align:center;">이 컴퓨터에서 만드는 주소록·카드·발송이력에 담당자 이름으로 표시됩니다.</p>
-    <input id="repGateInput" placeholder="예: 김민수" style="width:100%;box-sizing:border-box;text-align:center;padding:9px 10px;border:1px solid var(--gray-line);border-radius:8px;font-size:14px;margin-bottom:10px;">
+    <input id="repGateInput" placeholder="예: 김민수" value="${escapeHtml(getRep())}" style="width:100%;box-sizing:border-box;text-align:center;padding:9px 10px;border:1px solid var(--gray-line);border-radius:8px;font-size:14px;margin-bottom:10px;">
     <button class="btn primary" id="repGateOk" style="width:100%;">시작하기</button>
-    <p style="text-align:center;font-size:11px;color:var(--text-sub);margin-top:10px;margin-bottom:0;">나중에 상단의 "담당자(내 이름)" 칸에서 언제든 바꿀 수 있습니다.</p>
+    <p style="text-align:center;font-size:11px;color:var(--text-sub);margin-top:10px;margin-bottom:0;">나중에 상단의 "담당자(내 이름)" 칸 옆 ↻ 버튼으로 언제든 바꿀 수 있습니다.</p>
   </div>`;
   overlay.style.display = 'flex';
   const input = overlay.querySelector('#repGateInput');
   input.focus();
+  input.select();
   const submit = ()=>{
     const v = input.value.trim();
     if(!v){ toast('이름을 입력해주세요.'); return; }
@@ -589,6 +597,8 @@ function showRepGateIfNeeded(){
   overlay.querySelector('#repGateOk').onclick = submit;
   input.addEventListener('keydown', (e)=>{ if(e.key==='Enter') submit(); });
 }
+// 이름을 잘못 입력했거나, 같은 컴퓨터를 다른 사람이 잠깐 쓸 때 이름 입력 팝업을 다시 띄운다.
+document.getElementById('btnResetRepName').onclick = ()=> showRepGateIfNeeded(true);
 
 const LS_CUSTOMER_EMAIL = 'cardEditor.customerEmail.v1';
 const customerEmailInput = document.getElementById('customerEmail');
@@ -723,7 +733,9 @@ function fmtWon(n){ return '₩' + Math.round(n).toLocaleString() + '원'; }
 
 // 사입가 대비 이익률 메모(내부용). 마진 구간에 따라 색이 바뀐다: 적자=빨강, 20% 미만=주황, 20% 이상=초록.
 function marginNoteHtml(c){
-  if(!(c.costPrice > 0)) return '';
+  if(!(c.costPrice > 0)){
+    return `<div style="font-size:11px;color:#b3b8bf;padding:4px 2px 0;">(내부용) 사입가를 입력하면 이익률을 확인할 수 있습니다</div>`;
+  }
   if(!(c.salePrice > 0)){
     return `<div style="font-size:11px;color:#9aa0a6;padding:4px 2px 0;">(내부용) 사입가 ${fmtWon(c.costPrice)}</div>`;
   }
@@ -747,7 +759,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
     if(tab.dataset.panel==='fieldPanel'){ renderFieldGrid(); renderGallery(); renderLibChips(); renderLibGrid(); }
     if(tab.dataset.panel==='indoorPanel') renderIndoorGrid();
     if(tab.dataset.panel==='archPanel') renderArchive();
-    if(tab.dataset.panel==='mailPanel'){ renderMailTemplatesTab(); renderAllBizMailGrids(); renderAllBizMailEditors(); }
+    if(tab.dataset.panel==='mailPanel') renderMailTemplatesTab();
     if(tab.dataset.panel==='sendLogPanel') renderSendLog();
     if(tab.dataset.panel==='addrPanel') renderAddrBook();
     if(tab.dataset.panel==='custPanel') renderCustList();
@@ -1004,6 +1016,38 @@ document.getElementById('btnSelectNoneCards').onclick = ()=>{
   if(cards.length===0) return;
   cards.forEach(c=> c.checked = false);
   persistCards(); renderGrid();
+};
+
+// 카드가 많아졌을 때, 체크된 카드만 골라 보관함으로 한꺼번에 옮기거나(=보관함 저장 + 편집화면에서 제거) 삭제한다.
+// "이미지복사/메일 전송"에 쓰던 같은 체크박스를 그대로 재사용한다(선택 방식을 하나로 통일해 헷갈리지 않게).
+document.getElementById('btnBulkArchive').onclick = ()=>{
+  const targets = getCardsForSend();
+  if(targets.length===0){ toast('체크된 카드가 없습니다.'); return; }
+  if(!confirm(`체크된 카드 ${targets.length}개를 보관함으로 이동할까요? (보관함에 저장되고, 이 화면에서는 사라집니다)`)) return;
+  const who = getRep();
+  const customer = getCustomer();
+  targets.forEach(c=>{
+    archive.unshift({
+      id: uid(), savedAt: new Date().toISOString(), savedBy: who, customer,
+      config: JSON.parse(JSON.stringify(c))
+    });
+  });
+  persistArchive();
+  const targetIds = new Set(targets.map(c=>c.id));
+  cards = cards.filter(c=> !targetIds.has(c.id));
+  persistCards();
+  renderGrid();
+  toast(`${targets.length}개 카드를 보관함으로 이동했습니다.`);
+};
+document.getElementById('btnBulkDelete').onclick = ()=>{
+  const targets = getCardsForSend();
+  if(targets.length===0){ toast('체크된 카드가 없습니다.'); return; }
+  if(!confirm(`체크된 카드 ${targets.length}개를 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) return;
+  const targetIds = new Set(targets.map(c=>c.id));
+  cards = cards.filter(c=> !targetIds.has(c.id));
+  persistCards();
+  renderGrid();
+  toast(`${targets.length}개 카드를 삭제했습니다.`);
 };
 
 // 발송 전 체크리스트: 카드별로 이미지·형번·링크·가격이 다 채워졌는지 한 화면에서 점검하고,
@@ -1471,7 +1515,17 @@ function cardHtml(c){
   const imgTag = c.img
     ? `<img src="${c.img}" width="230" style="display:block;border:0;">`
     : `<div style="width:230px;height:160px;background:#f2f4f7;color:#9aa0a6;font-family:${FONT};font-size:13px;text-align:center;line-height:160px;">상품 이미지 없음</div>`;
-  const imgCell = (c.link && c.img) ? `<a href="${c.link}" target="_blank">${imgTag}</a>` : imgTag;
+  // 고객이 "이 사진을 누르면 상품 페이지로 이동하는구나"를 바로 알 수 있도록, 링크가 실제로 걸려있을 때만
+  // 이미지 바로 아래에 작은 안내 배지를 붙인다(badgeTagHtml과 같은 방식: bgcolor+font 태그만 써서
+  // Outlook "병합 서식" 붙여넣기에도 안 지워지게 함).
+  const clickHintHtml = (c.link && c.img)
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin-top:6px;"><tr>
+        <td bgcolor="#eef3fb" style="padding:5px 12px;">
+          <font face="Malgun Gothic" color="#0A4FA3" size="1">🔗 이미지를 클릭하면 상품 상세페이지로 이동합니다</font>
+        </td>
+      </tr></table>`
+    : '';
+  const imgCell = (c.link && c.img) ? `<a href="${c.link}" target="_blank">${imgTag}</a>${clickHintHtml}` : imgTag;
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="1" bordercolor="#e2e5ea" width="250" style="border-collapse:collapse;font-family:${FONT};">
 <tr>
   <td bgcolor="#163a7a" style="padding:10px 14px;">
@@ -2026,6 +2080,7 @@ function refreshIndoorMerged(){
   persistIndoorCatalog();
   renderIndoorCatalogStatus();
   populateIndoorManagerFilter();
+  populateIndoorKindFilter();
   renderIndoorGrid();
   const matchNote = (matchedByNo || matchedByName)
     ? ` (고객번호로 ${matchedByNo}건, 고객사명으로 ${matchedByName}건 매칭)`
@@ -2040,6 +2095,16 @@ function populateIndoorManagerFilter(){
   const managers = [...new Set(indoorCatalog.items.map(it=>it.manager).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
   sel.innerHTML = `<option value="">담당내근 (전체)</option>` + managers.map(m=>`<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
   sel.value = managers.includes(prev) ? prev : '';
+}
+// CAD 다운로드/견적(QT) 등 엑셀의 "구분" 값은 회사마다 표기가 달라서 고정 목록을 쓰지 않고,
+// 실제 업로드된 데이터에 있는 값만 자동으로 뽑아서 필터 옵션을 만든다.
+function populateIndoorKindFilter(){
+  const sel = document.getElementById('indoorKindFilter');
+  if(!sel) return;
+  const prev = sel.value;
+  const kinds = [...new Set(indoorCatalog.items.map(it=>it.kind).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
+  sel.innerHTML = `<option value="">구분 (전체)</option>` + kinds.map(k=>`<option value="${escapeHtml(k)}">${escapeHtml(k)}</option>`).join('');
+  sel.value = kinds.includes(prev) ? prev : '';
 }
 
 document.getElementById('btnPickIndoorExcel').onclick = ()=> document.getElementById('indoorExcelFile').click();
@@ -2093,12 +2158,14 @@ function getVisibleIndoorItems(){
   const minDays = minRaw !== '' && !isNaN(Number(minRaw)) ? Number(minRaw) : null;   // 이 값 "이상"
   const maxDays = maxRaw !== '' && !isNaN(Number(maxRaw)) ? Number(maxRaw) : null;   // 이 값 "미만"
   const managerFilter = document.getElementById('indoorManagerFilter').value;
+  const kindFilter = document.getElementById('indoorKindFilter').value;
   const sendFilter = document.getElementById('indoorSendFilter').value;
   let list = indoorCatalog.items.filter(it=>{
     if(!showCompleted && it.status && it.status.includes('완료')) return false;
     if(minDays !== null && (it.days === null || it.days < minDays)) return false;
     if(maxDays !== null && (it.days === null || it.days >= maxDays)) return false;
     if(managerFilter && it.manager !== managerFilter) return false;
+    if(kindFilter && it.kind !== kindFilter) return false;
     if(sendFilter && indoorSendClass(it.sendYn) !== sendFilter) return false;
     if(q && !(it.customer.toLowerCase().includes(q) || it.model.toLowerCase().includes(q) || (it.productName||'').toLowerCase().includes(q))) return false;
     return true;
@@ -2198,9 +2265,11 @@ document.getElementById('indoorMinDays').oninput = renderIndoorGrid;
 document.getElementById('indoorMaxDays').oninput = renderIndoorGrid;
 document.getElementById('indoorShowCompleted').onchange = renderIndoorGrid;
 document.getElementById('indoorManagerFilter').onchange = renderIndoorGrid;
+document.getElementById('indoorKindFilter').onchange = renderIndoorGrid;
 document.getElementById('indoorSendFilter').onchange = renderIndoorGrid;
 renderIndoorCatalogStatus();
 populateIndoorManagerFilter();
+populateIndoorKindFilter();
 
 document.getElementById('btnIndoorResetAllDone').onclick = ()=>{
   if(indoorDoneKeys.size===0){ toast('초기화할 "카드생성" 표시가 없습니다.'); return; }
@@ -3086,80 +3155,136 @@ function getSelectedTemplate(){
 }
 renderMailTplSelect();
 
-/* ---- [메일 설정] 탭: 템플릿 목록 + 편집기 ---- */
+/* ---- [메일 설정] 탭: 발송용 템플릿(mailTemplates) + 업무용 카드(bizMailCards)를 한 목록/한 편집기로 통합 관리.
+   [업무용 메일 카드] 탭의 카드형 그리드는 제목/본문만 빠르게 고치는 "간편 수정"용으로 남겨두고,
+   아이콘·설명 등 세부 설정이 필요한 진짜 편집은 여기 하나로 모은다. 두 종류 모두 완전히 같은 데이터를 보고 있어서
+   저장 즉시 [업무용 메일 카드] 탭에도 반영된다. */
+let editingTplKind = 'tpl'; // 'tpl' = 상품 카드 발송용(mailTemplates), 'biz' = 업무용(bizMailCards)
 function renderMailTemplatesTab(){
-  if(!mailTemplates.some(t=>t.id===editingTplId)) editingTplId = mailTemplates[0].id;
+  if(editingTplKind==='tpl' && !mailTemplates.some(t=>t.id===editingTplId)) editingTplId = mailTemplates[0].id;
+  if(editingTplKind==='biz' && !bizMailCards.some(t=>t.id===editingTplId)){
+    editingTplKind = 'tpl';
+    editingTplId = mailTemplates[0].id;
+  }
   const wrap = document.getElementById('tplListWrap');
-  wrap.innerHTML = mailTemplates.map(t=>`
-    <div class="tpl-list-item ${t.id===editingTplId?'active':''}" data-id="${t.id}">${escapeHtml(t.name)}</div>`).join('');
+  const tplItems = mailTemplates.map(t=>`
+    <div class="tpl-list-item ${editingTplKind==='tpl' && t.id===editingTplId?'active':''}" data-kind="tpl" data-id="${t.id}">${escapeHtml(t.name)}</div>`).join('');
+  const bizItems = bizMailCards.map(t=>`
+    <div class="tpl-list-item ${editingTplKind==='biz' && t.id===editingTplId?'active':''}" data-kind="biz" data-id="${t.id}">${t.icon||'✉️'} ${escapeHtml(t.title)}</div>`).join('');
+  wrap.innerHTML = `
+    <div style="font-size:11px;color:var(--text-sub);font-weight:700;margin:2px 0 4px;">상품 카드 발송용 (${mailTemplates.length})</div>
+    ${tplItems}
+    <div style="font-size:11px;color:var(--text-sub);font-weight:700;margin:16px 0 4px;">업무용 (${bizMailCards.length})</div>
+    ${bizItems || '<div style="color:#9aa0a6;font-size:12px;">아직 없습니다.</div>'}
+  `;
   wrap.querySelectorAll('.tpl-list-item').forEach(el=>{
-    el.onclick = ()=>{ editingTplId = el.dataset.id; renderMailTemplatesTab(); };
+    el.onclick = ()=>{ editingTplKind = el.dataset.kind; editingTplId = el.dataset.id; renderMailTemplatesTab(); };
   });
-  const tpl = mailTemplates.find(t=>t.id===editingTplId);
-  document.getElementById('tplName').value = tpl.name;
-  document.getElementById('tplSubject').value = tpl.subject;
-  document.getElementById('tplBody').value = tpl.body;
-  updateMailSubtabCounts();
+
+  const isBiz = editingTplKind==='biz';
+  document.getElementById('bizFieldsWrap').style.display = isBiz ? 'block' : 'none';
+  document.getElementById('btnUseBizTpl').style.display = isBiz ? '' : 'none';
+  document.getElementById('btnDelTpl').textContent = isBiz ? '이 카드 삭제' : '이 템플릿 삭제';
+  document.getElementById('tplNameLabel').textContent = isBiz ? '카드 제목' : '템플릿 이름';
+
+  if(isBiz){
+    const b = bizMailCards.find(x=>x.id===editingTplId);
+    document.getElementById('tplName').value = b.title;
+    document.getElementById('tplIcon').value = b.icon || '';
+    document.getElementById('tplDesc').value = b.desc || '';
+    document.getElementById('tplSubject').value = b.subject || '';
+    document.getElementById('tplBody').value = b.body || '';
+  } else {
+    const tpl = mailTemplates.find(t=>t.id===editingTplId);
+    document.getElementById('tplName').value = tpl.name;
+    document.getElementById('tplSubject').value = tpl.subject;
+    document.getElementById('tplBody').value = tpl.body;
+  }
 }
 
-/* [메일 설정] 탭 안의 "상품 카드 발송 템플릿" / "업무용 메일 카드" 두 구획을 전환하는 서브탭.
-   서로 다른 데이터(mailTemplates vs bizMailCards)라서 헷갈리기 쉬우니, 탭 이름에 개수까지 보여준다. */
-function updateMailSubtabCounts(){
-  const tplTab = document.querySelector('.mail-subtab[data-subtab="mailSubTpl"]');
-  const bizTab = document.querySelector('.mail-subtab[data-subtab="mailSubBiz"]');
-  if(tplTab) tplTab.textContent = `상품 카드 발송 템플릿 (${mailTemplates.length}개)`;
-  if(bizTab) bizTab.textContent = `업무용 메일 카드 (${bizMailCards.length}개)`;
-}
-document.querySelectorAll('.mail-subtab').forEach(st=>{
-  st.onclick = ()=>{
-    document.querySelectorAll('.mail-subtab').forEach(x=>{
-      x.classList.remove('active');
-      x.style.borderBottom = 'none';
-      x.style.color = 'var(--text-sub)';
-    });
-    st.classList.add('active');
-    st.style.borderBottom = '2px solid var(--navy)';
-    st.style.color = 'var(--navy)';
-    document.getElementById('mailSubTpl').style.display = st.dataset.subtab==='mailSubTpl' ? '' : 'none';
-    document.getElementById('mailSubBiz').style.display = st.dataset.subtab==='mailSubBiz' ? '' : 'none';
-    if(st.dataset.subtab==='mailSubBiz'){ renderAllBizMailGrids(); renderAllBizMailEditors(); }
-  };
-});
 document.getElementById('btnAddTpl').onclick = ()=>{
   const name = prompt('새 템플릿 이름을 입력하세요', '새 템플릿');
   if(!name || !name.trim()) return;
   const t = { id: uid(), name: name.trim(), subject: '', body: '' };
   mailTemplates.push(t); persistMailTemplates();
-  editingTplId = t.id;
+  editingTplKind = 'tpl'; editingTplId = t.id;
   renderMailTemplatesTab(); renderMailTplSelect();
+};
+document.getElementById('btnAddBizTpl').onclick = ()=>{
+  const title = prompt('새 업무용 메일 카드 제목을 입력하세요', '새 메일 카드');
+  if(!title || !title.trim()) return;
+  const b = { id: uid(), title: title.trim(), desc:'', icon:'✉️', subject:'', body:'' };
+  bizMailCards.push(b); persistBizMail();
+  editingTplKind = 'biz'; editingTplId = b.id;
+  renderMailTemplatesTab(); renderAllBizMailGrids(); renderAllBizMailEditors();
 };
 document.getElementById('btnSaveTpl').onclick = ()=>{
-  const tpl = mailTemplates.find(t=>t.id===editingTplId);
   const name = document.getElementById('tplName').value.trim();
-  if(!name){ toast('템플릿 이름은 필수입니다.'); return; }
-  tpl.name = name;
-  tpl.subject = document.getElementById('tplSubject').value;
-  tpl.body = document.getElementById('tplBody').value;
-  persistMailTemplates();
-  renderMailTemplatesTab(); renderMailTplSelect();
-  toast('템플릿이 저장되었습니다.');
+  if(!name){ toast(editingTplKind==='biz' ? '카드 제목은 필수입니다.' : '템플릿 이름은 필수입니다.'); return; }
+  if(editingTplKind==='biz'){
+    const b = bizMailCards.find(x=>x.id===editingTplId);
+    b.title = name;
+    b.icon = document.getElementById('tplIcon').value.trim();
+    b.desc = document.getElementById('tplDesc').value.trim();
+    b.subject = document.getElementById('tplSubject').value;
+    b.body = document.getElementById('tplBody').value;
+    persistBizMail();
+    renderMailTemplatesTab(); renderAllBizMailGrids(); renderAllBizMailEditors();
+    toast('업무용 메일 카드가 저장되었습니다.');
+  } else {
+    const tpl = mailTemplates.find(t=>t.id===editingTplId);
+    tpl.name = name;
+    tpl.subject = document.getElementById('tplSubject').value;
+    tpl.body = document.getElementById('tplBody').value;
+    persistMailTemplates();
+    renderMailTemplatesTab(); renderMailTplSelect();
+    toast('템플릿이 저장되었습니다.');
+  }
+};
+document.getElementById('btnUseBizTpl').onclick = ()=>{
+  if(editingTplKind!=='biz') return;
+  const values = bizMailTokenValues();
+  const subject = fillAllTokens(document.getElementById('tplSubject').value, values);
+  const body = fillAllTokens(document.getElementById('tplBody').value, values);
+  const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const a = document.createElement('a');
+  a.href = mailto; document.body.appendChild(a); a.click(); a.remove();
+  toast('메일 창이 열렸습니다.');
 };
 document.getElementById('btnDupTpl').onclick = ()=>{
-  const tpl = mailTemplates.find(t=>t.id===editingTplId);
-  const copy = { id: uid(), name: tpl.name + ' 사본', subject: tpl.subject, body: tpl.body };
-  mailTemplates.push(copy); persistMailTemplates();
-  editingTplId = copy.id;
-  renderMailTemplatesTab(); renderMailTplSelect();
-  toast('템플릿을 복제했습니다.');
+  if(editingTplKind==='biz'){
+    const b = bizMailCards.find(x=>x.id===editingTplId);
+    const copy = Object.assign({}, b, { id: uid(), title: b.title + ' 사본' });
+    bizMailCards.push(copy); persistBizMail();
+    editingTplId = copy.id;
+    renderMailTemplatesTab(); renderAllBizMailGrids(); renderAllBizMailEditors();
+    toast('카드를 복제했습니다.');
+  } else {
+    const tpl = mailTemplates.find(t=>t.id===editingTplId);
+    const copy = { id: uid(), name: tpl.name + ' 사본', subject: tpl.subject, body: tpl.body };
+    mailTemplates.push(copy); persistMailTemplates();
+    editingTplId = copy.id;
+    renderMailTemplatesTab(); renderMailTplSelect();
+    toast('템플릿을 복제했습니다.');
+  }
 };
 document.getElementById('btnDelTpl').onclick = ()=>{
-  if(mailTemplates.length<=1){ toast('템플릿이 최소 1개는 있어야 합니다.'); return; }
-  if(!confirm('이 템플릿을 삭제할까요?')) return;
-  mailTemplates = mailTemplates.filter(t=>t.id!==editingTplId);
-  persistMailTemplates();
-  editingTplId = mailTemplates[0].id;
-  renderMailTemplatesTab(); renderMailTplSelect();
-  toast('삭제되었습니다.');
+  if(editingTplKind==='biz'){
+    if(!confirm('이 업무용 메일 카드를 삭제할까요?')) return;
+    bizMailCards = bizMailCards.filter(x=>x.id!==editingTplId);
+    persistBizMail();
+    editingTplKind = 'tpl'; editingTplId = mailTemplates[0].id;
+    renderMailTemplatesTab(); renderAllBizMailGrids(); renderAllBizMailEditors();
+    toast('삭제되었습니다.');
+  } else {
+    if(mailTemplates.length<=1){ toast('템플릿이 최소 1개는 있어야 합니다.'); return; }
+    if(!confirm('이 템플릿을 삭제할까요?')) return;
+    mailTemplates = mailTemplates.filter(t=>t.id!==editingTplId);
+    persistMailTemplates();
+    editingTplId = mailTemplates[0].id;
+    renderMailTemplatesTab(); renderMailTplSelect();
+    toast('삭제되었습니다.');
+  }
 };
 
 /* ===================== 업무용 메일 카드 (내부 부서용 반복 업무 메일) =====================
@@ -3205,15 +3330,13 @@ function bizMailTokenValues(){
   const customer = getCustomer() || '';
   return { '고객사명': customer, '고객사': customer, '담당자': getRep(), '오늘날짜': new Date().toLocaleDateString('ko-KR') };
 }
-/* [업무용 메일 카드] 탭과 [메일 설정] 탭 안 두 곳에서 같은 bizMailCards 데이터를 보여주고 편집한다.
-   두 군데의 DOM id가 겹치면 안 되므로, 그리드/편집기 내부 요소는 id 대신 class로 wrap 안에서만 찾도록 하고,
-   "어느 화면에 그릴지"는 컨테이너 id 목록(BIZ_MAIL_GRID_TARGETS/EDITOR_TARGETS)으로 관리한다.
-   한쪽에서 저장/삭제/추가하면 renderAllBizMailGrids()+renderAllBizMailEditors()로 양쪽 모두 다시 그려서 항상 동기화된다. */
+/* [업무용 메일 카드] 탭의 카드형 그리드(간편 수정용)를 그린다. 세부 설정(아이콘·설명 등)은 [메일 설정] 탭의
+   통합 목록/편집기에서 하고, 여기서 바뀐 내용도 같은 bizMailCards 데이터라서 바로 반영된다.
+   컨테이너를 id 목록으로 관리해두면 나중에 다른 화면에 같은 그리드를 또 붙이기도 쉽다. */
 const BIZ_MAIL_GRID_TARGETS = [
-  { gridId:'bizMailGrid', searchId:'bizMailSearch' },
-  { gridId:'bizMailGridInSettings', searchId:'bizMailSearchInSettings' }
+  { gridId:'bizMailGrid', searchId:'bizMailSearch' }
 ];
-const BIZ_MAIL_EDITOR_TARGETS = ['bizMailEditorWrap', 'bizMailEditorWrapInSettings'];
+const BIZ_MAIL_EDITOR_TARGETS = ['bizMailEditorWrap'];
 
 function renderBizMailGridInto(gridId, searchId){
   const wrap = document.getElementById(gridId);
@@ -3312,7 +3435,6 @@ function renderBizMailGrid(){ renderAllBizMailGrids(); }
 function renderBizMailEditor(){ renderAllBizMailEditors(); }
 
 document.getElementById('bizMailSearch').oninput = renderAllBizMailGrids;
-document.getElementById('bizMailSearchInSettings').oninput = renderAllBizMailGrids;
 
 /* "Outlook 메일 준비"를 누르면 먼저 예/아니오로 방식을 고르게 한다.
    - 예(자동): 기존과 동일하게 메일창을 자동으로 열고(mailto), 카드를 클립보드에 복사해둔다 - Ctrl+V만 하면 됨.
