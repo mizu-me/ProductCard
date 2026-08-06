@@ -21,6 +21,24 @@
   .tab.active{ background:var(--navy-dark); color:#fff; }
   .tab-sep{ width:1px; align-self:stretch; margin:6px 2px; background:var(--gray-line); }
 
+  .rep-badge{ font-size:12.5px; color:#fff; opacity:.9; }
+  .tabs2{ max-width:1180px; margin:18px auto 0; display:flex; gap:10px; padding:0 24px; }
+  .tab2{ padding:11px 26px; border-radius:10px; border:1px solid var(--gray-line); background:#fff; font-weight:800; font-size:14.5px; cursor:pointer; color:#555; }
+  .tab2.active{ background:var(--navy-dark); color:#fff; border-color:var(--navy-dark); }
+  .workspace{ display:none; max-width:1180px; margin:14px auto 0; padding:0 24px 60px; gap:18px; }
+  .workspace.show{ display:flex; }
+  .side-nav{ width:150px; flex-shrink:0; display:flex; flex-direction:column; gap:4px; }
+  .subnav-btn{ padding:10px 12px; border-radius:8px; font-size:13px; font-weight:700; color:#444; cursor:pointer; }
+  .subnav-btn:hover{ background:#e8ecf3; }
+  .subnav-btn.active{ background:var(--navy-dark); color:#fff; }
+  .subnav-btn.minor{ font-size:12px; font-weight:400; color:var(--text-sub); padding:7px 12px; }
+  .subnav-sep{ height:1px; background:var(--gray-line); margin:6px 4px; }
+  .main-slot{ flex:1; min-width:0; }
+  .main-slot .panel{ max-width:none; margin:0; padding:0; display:none; }
+  .main-slot .panel.show{ display:block; }
+  #topBtn{ position:fixed; right:28px; bottom:28px; width:44px; height:44px; border-radius:50%; background:var(--navy-dark); color:#fff; border:none; font-size:18px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.25); display:none; z-index:50; }
+  #topBtn.show{ display:block; }
+
   .panel{ display:none; max-width:1180px; margin:0 auto; padding:18px 24px 60px; }
   .panel.show{ display:block; }
   .hint{ font-size:12.5px; color:var(--text-sub); background:#fff; border:1px solid var(--gray-line); border-radius:8px; padding:12px 16px; margin-bottom:18px; line-height:1.6; }
@@ -38,6 +56,8 @@
   .p-card .imgbox{ width:100%; height:230px; background:#ffffff; border-bottom:1px solid var(--gray-line); display:flex; align-items:center; justify-content:center; color:#9aa0a6; font-size:13px; cursor:pointer; overflow:hidden; position:relative; }
   .p-card .imgbox:focus{ outline:2px solid var(--navy); }
   .p-card .imgbox .paste-tip{ position:absolute; bottom:2px; right:4px; font-size:9px; color:#fff; background:rgba(0,0,0,.45); padding:1px 5px; border-radius:4px; pointer-events:none; }
+  .img-x-btn{ position:absolute; top:6px; right:6px; width:22px; height:22px; border-radius:50%; border:none; background:rgba(0,0,0,.55); color:#fff; font-size:14px; line-height:22px; padding:0; cursor:pointer; }
+  .img-x-btn:hover{ background:rgba(192,18,46,.85); }
   .p-card .imgbox img{ max-width:100%; max-height:100%; object-fit:contain; display:block; transition:transform .1s; }
   .zoom-row{ display:flex; align-items:center; gap:6px; padding:4px 2px 0; }
   .zoom-row input[type=range]{ flex:1; }
@@ -148,42 +168,63 @@
 
 <header>
   <div>
-    <h1>Outlook 상품 카드 편집기</h1>
+    <h1>MISUMI 상품 카드</h1>
     <div class="sub">카드의 이미지·텍스트를 직접 클릭해 수정 · 완료 후 이미지로 복사(링크 유지) → Outlook에 Ctrl+V</div>
   </div>
   <div class="top-actions">
-    <input id="repName" placeholder="담당자(내 이름)" style="padding:9px 12px;border-radius:8px;border:none;font-size:13px;width:110px;">
-    <button class="btn ghost" id="btnResetRepName" title="다른 사람으로 시작하기 (이름 다시 입력)" style="padding:9px 8px;font-size:12px;">↻</button>
-    <input id="customerName" placeholder="고객사명 (이 발송건)" list="taListDatalist" style="padding:9px 12px;border-radius:8px;border:none;font-size:13px;width:150px;">
-    <datalist id="taListDatalist"></datalist>
-    <input id="customerEmail" placeholder="고객 이메일 (선택)" style="padding:9px 12px;border-radius:8px;border:none;font-size:13px;width:170px;">
-    <button class="btn ghost" id="btnAddCard">+ 카드 추가</button>
-    <button class="btn ghost" id="btnCheckAllLinks">🔍 발송 전 체크리스트</button>
-    <select id="mailTplSelect" title="메일 종류 선택" style="padding:9px 10px;border-radius:8px;border:none;font-size:13px;"></select>
-    <button class="btn ghost" id="btnPrepMail">Outlook 메일 준비 (제목·인사말 자동)</button>
-    <button class="btn primary" id="btnCopyAll">이미지로 복사 (링크 유지)</button>
+    <span id="repNameDisplay" class="rep-badge" title="담당자 이름 변경"></span>
+    <input id="repName" style="display:none;">
+    <button class="btn ghost" id="btnResetRepName" title="담당자 이름 변경" style="padding:9px 8px;font-size:12px;">👤</button>
   </div>
 </header>
 
-<div class="tabs">
-  <div class="tab active" data-panel="editPanel">카드 편집</div>
-  <div class="tab" data-panel="fieldPanel">외근영업</div>
-  <div class="tab" data-panel="bizMailPanel">업무용 메일 카드</div>
-  <div class="tab" data-panel="indoorPanel">내근영업</div>
-  <div class="tab-sep"></div>
-  <div class="tab" data-panel="archPanel">보관함</div>
-  <div class="tab" data-panel="sendLogPanel">발송이력</div>
-  <div class="tab" data-panel="custPanel">고객사별</div>
-  <div class="tab-sep"></div>
-  <div class="tab" data-panel="addrPanel">메일주소록</div>
-  <div class="tab" data-panel="mailPanel">메일 설정</div>
-  <div class="tab-sep"></div>
-  <div class="tab" data-panel="sharePanel">공유 / 엑셀 연동</div>
+<div class="tabs2">
+  <div class="tab2 active" id="topTab_field" data-top="field">외근영업</div>
+  <div class="tab2" id="topTab_indoor" data-top="indoor">내근영업</div>
 </div>
 
+<div class="workspace show" id="workspace_field">
+  <div class="side-nav" id="fieldSideNav">
+    <div class="subnav-btn" data-key="home">카드 목록</div>
+    <div class="subnav-btn" data-key="addr">메일주소록</div>
+    <div class="subnav-btn" data-key="mail">메일설정</div>
+    <div class="subnav-btn" data-key="sendlog">발송이력</div>
+    <div class="subnav-btn" data-key="arch">카드 보관함</div>
+    <div class="subnav-btn" data-key="bizmail">업무용 메일카드</div>
+  </div>
+  <div class="main-slot" id="fieldMainSlot"></div>
+</div>
+
+<div class="workspace" id="workspace_indoor">
+  <div class="side-nav" id="indoorSideNav">
+    <div class="subnav-btn" data-key="home">캠페인 목록</div>
+    <div class="subnav-btn" data-key="editcard">카드 편집</div>
+    <div class="subnav-btn" data-key="arch">보관함</div>
+    <div class="subnav-btn" data-key="sendlog">발송이력</div>
+    <div class="subnav-btn" data-key="addr">메일주소록</div>
+    <div class="subnav-btn" data-key="mail">메일설정</div>
+    <div class="subnav-sep"></div>
+    <div class="subnav-btn minor" data-key="cust">고객사별</div>
+    <div class="subnav-btn minor" data-key="share">공유/엑셀연동</div>
+  </div>
+  <div class="main-slot" id="indoorMainSlot"></div>
+</div>
+
+<button id="topBtn" title="맨 위로">↑</button>
+
 <div class="panel show" id="editPanel">
-  <div class="hint">카드의 이미지·배지·텍스트를 클릭해 직접 수정하세요. 이미지는 3가지 방법으로 넣을 수 있습니다: ① <b>파일선택</b> 버튼으로 PC 사진 업로드, ② <b>이미지URL</b> 버튼에 kr.misumi-ec.com 상품페이지에서 복사한 이미지 주소 붙여넣기, ③ 이미지 칸을 클릭한 뒤 캡처한 화면을 그대로 <b>Ctrl+V</b>. 완성되면 상단 "이미지로 복사"로 Outlook에 붙여넣거나, 보관함 탭에서 저장해 다른 사람과 공유하세요.<br>
+  <div class="hint">카드의 이미지·배지·텍스트를 클릭해 직접 수정하세요. 이미지는 이미지 칸을 클릭해 PC 사진을 올리거나, 캡처한 화면을 그대로 <b>Ctrl+V</b>로 붙여넣거나, "이미지URL" 버튼에 kr.misumi-ec.com 상품페이지에서 복사한 이미지 주소를 붙여넣으면 됩니다. 완성되면 "이미지로 복사"로 Outlook에 붙여넣으세요 - 보낸 카드는 발송이력에 자동으로 남아 나중에 다시 불러올 수 있습니다.<br>
   카드가 여러 개일 때는 각 카드 위의 체크박스로 <b>"이미지로 복사" / "Outlook 메일 준비" / "코드 생성" / "발송 전 체크리스트"에 포함할 카드만 골라</b> 쓸 수 있습니다 (체크 해제한 카드는 흐리게 표시되고, 이 화면에 그대로 남아있을 뿐 전송에서만 제외됩니다). 카드가 너무 많아졌을 때는 같은 체크박스로 <b>"체크된 카드 보관함으로 이동" / "체크된 카드 삭제"</b>로 한꺼번에 정리할 수 있습니다.</div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+    <input id="customerName" placeholder="고객사명 (이 발송건)" list="taListDatalist" style="padding:9px 12px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;width:150px;">
+    <datalist id="taListDatalist"></datalist>
+    <input id="customerEmail" placeholder="고객 이메일 (선택)" style="padding:9px 12px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;width:170px;">
+    <button class="btn" id="btnAddCard">+ 카드 추가</button>
+    <select id="mailTplSelect" title="메일 종류 선택" style="padding:9px 10px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;"></select>
+    <button class="btn" id="btnPrepMail">Outlook 메일 준비</button>
+    <button class="btn" id="btnCheckAllLinks">🔍 발송 전 체크리스트</button>
+    <button class="btn primary" id="btnCopyAll">이미지로 복사 (링크 유지)</button>
+  </div>
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
     <button class="btn" id="btnSelectAllCards">전체 선택</button>
     <button class="btn" id="btnSelectNoneCards">전체 해제</button>
@@ -202,8 +243,8 @@
     이미지는 URL 형태(예: kr.misumi-ec.com 상품페이지에서 복사한 이미지 주소)도 되고, 엑셀에 이미지가 없으면 형번으로 자동 조회해 준비된 상품 사진을 채워줍니다.
   </div>
   <div class="hint">
-    <b>준비된 상품 카드 라이브러리</b> - 방문 전 미리 만들어 [보관함]에 저장해 둔 카드를 검색·카테고리로 찾아 바로 [카드 편집]에 담을 수 있는 곳입니다.
-    [카드 편집]에서 카드를 만들고 "보관함 저장"을 누르면 자동으로 여기에 모입니다. 회사에서 카테고리별로 미리 골라둔 대표 상품(매출 상위순) 세트가 있으면
+    <b>준비된 상품 카드 라이브러리</b> - 방문 전 미리 만들어 [보관함]에 저장해 둔 카드를 검색·카테고리로 찾아 바로 [카드 목록]에 담을 수 있는 곳입니다.
+    카드를 보내면(이 카드로 보내기 등) 발송이력에 자동으로 기록되어 나중에 다시 꺼내 쓸 수 있습니다. 회사에서 카테고리별로 미리 골라둔 대표 상품(매출 상위순) 세트가 있으면
     아래 버튼으로 한 번에 불러올 수 있습니다.
   </div>
   <div style="margin-bottom:10px;">
@@ -323,7 +364,8 @@
   <div id="indoorWrap" style="max-height:560px;overflow:auto;border:1px solid var(--gray-line);border-radius:8px;"></div>
 </div>
 
-<div class="panel" id="codePanel">
+<div class="panel" id="codePanel" style="max-width:1180px;margin:0 auto;">
+  <div style="margin-bottom:10px;"><a href="#" id="linkBackFromCode" style="font-size:12.5px;color:var(--text-sub);">← 뒤로</a></div>
   <div class="hint">아래 코드를 복사해 Outlook 서명/본문 HTML 소스에 붙여넣을 수 있습니다.</div>
   <textarea id="codeOut" style="width:100%;height:340px;font-family:monospace;font-size:12px;padding:12px;border:1px solid var(--gray-line);border-radius:8px;"></textarea>
   <div style="margin-top:10px;"><button class="btn primary" id="btnGenCode">코드 생성</button> <button class="btn" id="btnCopyCode">코드 복사</button></div>
@@ -366,7 +408,7 @@
 </div>
 
 <div class="panel" id="sendLogPanel">
-  <div class="hint">"이미지로 복사" 또는 "Outlook 메일 준비"를 누른 순간마다 자동으로 기록됩니다 (실제로 메일을 보냈는지는 확인할 수 없지만, "이 고객에게 이 상품을 이때 준비해서 보냈다"를 추적하는 용도입니다). 같은 고객에게 중복으로 보내는 걸 방지하거나, 방문 전에 "저번에 뭘 보냈었지" 확인할 때 씁니다.</div>
+  <div class="hint">"이미지로 복사" 또는 "Outlook 메일 준비"를 누른 순간마다 자동으로 기록됩니다 (실제로 메일을 보냈는지는 확인할 수 없지만, "이 고객에게 이 상품을 이때 준비해서 보냈다"를 추적하는 용도입니다). 같은 고객에게 중복으로 보내는 걸 방지하거나, 방문 전에 "저번에 뭘 보냈었지" 확인할 때 씁니다. 카드 내용도 같이 저장되어 있어서, "편집으로 불러오기"를 누르면 그때 보낸 카드들을 그대로 다시 꺼내 쓸 수 있습니다.</div>
   <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;">
     <input id="sendLogSearch" placeholder="고객사명 또는 담당자 이름으로 검색" style="flex:1;min-width:220px;padding:9px 14px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
     <span id="sendLogCount" style="font-size:12px;color:var(--text-sub);align-self:center;"></span>
@@ -575,8 +617,13 @@ function getCustomer(){ return customerInput.value.trim(); }
 const LS_REP = 'cardEditor.rep.v1';
 const repInput = document.getElementById('repName');
 repInput.value = localStorage.getItem(LS_REP) || '';
-repInput.oninput = ()=> localStorage.setItem(LS_REP, repInput.value);
+function updateRepBadge(){
+  const el = document.getElementById('repNameDisplay');
+  if(el) el.textContent = repInput.value.trim() ? `담당자: ${repInput.value.trim()}` : '담당자 미입력';
+}
+repInput.oninput = ()=>{ localStorage.setItem(LS_REP, repInput.value); updateRepBadge(); };
 function getRep(){ return repInput.value.trim(); }
+updateRepBadge();
 
 /* 이 컴퓨터에서 처음 쓸 때 이름부터 물어보는 가벼운 "게이트" (진짜 로그인/인증 아님).
    한 번 입력하면 다시 뜨지 않고, 이후에는 상단 "담당자(내 이름)" 칸에서 언제든 바꿀 수 있다. */
@@ -600,6 +647,7 @@ function showRepGateIfNeeded(force){
     if(!v){ toast('이름을 입력해주세요.'); return; }
     repInput.value = v;
     localStorage.setItem(LS_REP, v);
+    updateRepBadge();
     overlay.style.display = 'none';
     overlay.innerHTML = '';
   };
@@ -608,6 +656,8 @@ function showRepGateIfNeeded(force){
 }
 // 이름을 잘못 입력했거나, 같은 컴퓨터를 다른 사람이 잠깐 쓸 때 이름 입력 팝업을 다시 띄운다.
 document.getElementById('btnResetRepName').onclick = ()=> showRepGateIfNeeded(true);
+document.getElementById('repNameDisplay').style.cursor = 'pointer';
+document.getElementById('repNameDisplay').onclick = ()=> showRepGateIfNeeded(true);
 
 const LS_CUSTOMER_EMAIL = 'cardEditor.customerEmail.v1';
 const customerEmailInput = document.getElementById('customerEmail');
@@ -724,7 +774,12 @@ document.getElementById('btnAddAddr').onclick = ()=>{
 const LS_SENDLOG = 'cardEditor.sendLog.v1';
 let sendLog = JSON.parse(localStorage.getItem(LS_SENDLOG) || 'null') || [];
 function persistSendLog(){ localStorage.setItem(LS_SENDLOG, JSON.stringify(sendLog)); }
-function logSend(customerOverride, tplName){
+// (2026-08-06) cardListOverride 추가 - 라이브러리에서 직접 보낼 때는 전역 cards가 아니라
+// 그 카드들 자체가 실제로 보낸 대상이라, 그걸 그대로 기록해야 "편집으로 불러오기"가 정확해진다.
+// fullCards에 카드 전체 설정(이미지·링크 등 포함)을 통째로 저장해서, 보관함 저장 버튼 없이도
+// 발송이력에서 그대로 다시 꺼내 쓸 수 있게 한다.
+function logSend(customerOverride, tplName, cardListOverride){
+  const sendCards = cardListOverride || getCardsForSend();
   sendLog.unshift({
     id: uid(),
     at: new Date().toISOString(),
@@ -733,7 +788,8 @@ function logSend(customerOverride, tplName){
     template: tplName || '',
     status: '',
     statusNote: '',
-    items: getCardsForSend().map(c=>({ model:c.model, name:c.name, salePrice:c.salePrice }))
+    items: sendCards.map(c=>({ model:c.model, name:c.name, salePrice:c.salePrice })),
+    fullCards: sendCards.map(c=> JSON.parse(JSON.stringify(c)))
   });
   persistSendLog();
 }
@@ -758,23 +814,86 @@ function toast(msg){
   setTimeout(()=>t.classList.remove('show'), 2400);
 }
 
-/* ===================== 탭 전환 ===================== */
-document.querySelectorAll('.tab').forEach(tab=>{
-  tab.onclick = ()=>{
-    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show'));
-    tab.classList.add('active');
-    document.getElementById(tab.dataset.panel).classList.add('show');
-    if(tab.dataset.panel==='fieldPanel'){ renderFieldGrid(); renderGallery(); renderLibChips(); renderLibGrid(); }
-    if(tab.dataset.panel==='indoorPanel') renderIndoorGrid();
-    if(tab.dataset.panel==='archPanel') renderArchive();
-    if(tab.dataset.panel==='mailPanel') renderMailTemplatesTab();
-    if(tab.dataset.panel==='sendLogPanel') renderSendLog();
-    if(tab.dataset.panel==='addrPanel') renderAddrBook();
-    if(tab.dataset.panel==='custPanel') renderCustList();
-    if(tab.dataset.panel==='bizMailPanel'){ renderBizMailGrid(); renderBizMailEditor(); }
-  };
+/* ===================== 탭 전환 (2026-08-06 개편) =====================
+   기존에는 탭 10개가 전부 최상단에 나란히 있었는데, 지금은 "외근영업"/"내근영업" 2개만
+   최상단에 두고 나머지(메일주소록/메일설정/발송이력/보관함/업무용메일카드/카드편집/고객사별/공유연동)는
+   각 상황에 맞게 왼쪽 세로 메뉴로 옮겼다. 패널 자체(#addrPanel 등)는 그대로 두고, 필요할 때
+   JS로 해당 슬롯(main-slot) 안으로 이동시켜서 보여주는 방식 - 내부 로직/id는 전혀 안 바뀌었다. */
+const PANEL_RENDER = {
+  editPanel: ()=> renderGrid(),
+  fieldPanel: ()=>{ renderFieldGrid(); renderGallery(); renderLibChips(); renderLibGrid(); },
+  indoorPanel: ()=> renderIndoorGrid(),
+  archPanel: ()=> renderArchive(),
+  mailPanel: ()=> renderMailTemplatesTab(),
+  sendLogPanel: ()=> renderSendLog(),
+  addrPanel: ()=> renderAddrBook(),
+  custPanel: ()=> renderCustList(),
+  bizMailPanel: ()=>{ renderBizMailGrid(); renderBizMailEditor(); },
+  sharePanel: ()=>{},
+};
+function mountPanels(panelIds, slotEl){
+  slotEl.innerHTML = '';
+  panelIds.forEach(id=>{
+    const el = document.getElementById(id);
+    slotEl.appendChild(el);
+    el.classList.add('show');
+    if(PANEL_RENDER[id]) PANEL_RENDER[id]();
+  });
+  window.scrollTo({ top: slotEl.getBoundingClientRect().top + window.scrollY - 90, behavior:'instant' });
+}
+const FIELD_SUBNAV = {
+  home:   ['editPanel','fieldPanel'],
+  addr:   ['addrPanel'],
+  mail:   ['mailPanel'],
+  sendlog:['sendLogPanel'],
+  arch:   ['archPanel'],
+  bizmail:['bizMailPanel'],
+};
+const INDOOR_SUBNAV = {
+  home:    ['indoorPanel'],
+  editcard:['editPanel'],
+  arch:    ['archPanel'],
+  sendlog: ['sendLogPanel'],
+  addr:    ['addrPanel'],
+  mail:    ['mailPanel'],
+  cust:    ['custPanel'],
+  share:   ['sharePanel'],
+};
+function showFieldSub(key){
+  document.querySelectorAll('#fieldSideNav .subnav-btn').forEach(b=> b.classList.toggle('active', b.dataset.key===key));
+  mountPanels(FIELD_SUBNAV[key] || FIELD_SUBNAV.home, document.getElementById('fieldMainSlot'));
+}
+function showIndoorSub(key){
+  document.querySelectorAll('#indoorSideNav .subnav-btn').forEach(b=> b.classList.toggle('active', b.dataset.key===key));
+  mountPanels(INDOOR_SUBNAV[key] || INDOOR_SUBNAV.home, document.getElementById('indoorMainSlot'));
+}
+function showTopTab(top){
+  document.getElementById('codePanel').classList.remove('show');
+  document.getElementById('topTab_field').classList.toggle('active', top==='field');
+  document.getElementById('topTab_indoor').classList.toggle('active', top==='indoor');
+  document.getElementById('workspace_field').classList.toggle('show', top==='field');
+  document.getElementById('workspace_indoor').classList.toggle('show', top==='indoor');
+  if(top==='field') showFieldSub('home'); else showIndoorSub('home');
+}
+// 예전 코드 곳곳에서 "카드 편집 탭으로 이동"을 document.querySelector('.tab[data-panel="editPanel"]').click()
+// 로 했었는데, 그 탭 자체가 없어져서 goToEditPanel()로 전부 바꿨다. 지금 내근영업을 보고 있었으면
+// 내근영업의 "카드 편집" 서브탭으로, 아니면(기본은 외근영업) 외근영업의 기본 화면(카드 목록)으로 이동한다.
+function goToEditPanel(){
+  const indoorActive = document.getElementById('workspace_indoor').classList.contains('show');
+  if(indoorActive){ showIndoorSub('editcard'); }
+  else { showTopTab('field'); }
+}
+document.getElementById('topTab_field').onclick = ()=> showTopTab('field');
+document.getElementById('topTab_indoor').onclick = ()=> showTopTab('indoor');
+document.querySelectorAll('#fieldSideNav .subnav-btn').forEach(b=>{ b.onclick = ()=> showFieldSub(b.dataset.key); });
+document.querySelectorAll('#indoorSideNav .subnav-btn').forEach(b=>{ b.onclick = ()=> showIndoorSub(b.dataset.key); });
+showTopTab('field');
+
+/* TOP 버튼 - 카드/목록이 길어졌을 때 최상단으로 바로 이동 */
+window.addEventListener('scroll', ()=>{
+  document.getElementById('topBtn').classList.toggle('show', window.scrollY > 400);
 });
+document.getElementById('topBtn').onclick = ()=> window.scrollTo({ top:0, behavior:'smooth' });
 
 /* ===================== 카드 편집 화면 ===================== */
 function updateCardSelCount(){
@@ -796,7 +915,7 @@ function renderGrid(){
           MISUMI
           <span class="b" data-act="badge">${c.badge}% 할인</span>
         </div>
-        <div class="imgbox" data-act="img" tabindex="0" title="클릭: 파일 선택 / 여기 클릭 후 Ctrl+V: 캡처 이미지 붙여넣기">${c.img ? `<img src="${c.img}" style="transform:scale(${(c.imgScale||100)/100});">` : '상품 이미지 (클릭 또는 Ctrl+V)'}<span class="paste-tip">Ctrl+V 가능</span></div>
+        <div class="imgbox" data-act="img" tabindex="0" title="클릭: 파일 선택 / 여기 클릭 후 Ctrl+V: 캡처 이미지 붙여넣기">${c.img ? `<img src="${c.img}" style="transform:scale(${(c.imgScale||100)/100});">` : '상품 이미지 (클릭 또는 Ctrl+V)'}<span class="paste-tip">Ctrl+V 가능</span>${c.img ? `<button data-act="imgDel" class="img-x-btn" title="이미지 삭제">×</button>` : ''}</div>
         ${c.img ? `<div class="zoom-row"><span style="font-size:11px;">크기</span><input type="range" min="50" max="200" value="${c.imgScale||100}" data-act="zoom"><span>${c.imgScale||100}%</span></div>` : ''}
         <div class="body">
           <span class="tag2" contenteditable="true" data-field="category">${c.category}</span>${(c._강조&&c._강조.length) ? `<span class="emphasis-tag">${c._강조.join(' · ')}</span>` : ''}
@@ -814,11 +933,9 @@ function renderGrid(){
           <button data-act="modelSearch">형번 검색 (링크 자동)</button>
         </div>
         <div class="row-btns">
-          <button data-act="img">파일선택</button>
           <button data-act="imgurl">이미지URL</button>
-          <button data-act="imgDel" class="danger" ${c.img ? '' : 'disabled'}>이미지 삭제</button>
           <button data-act="link" class="${c.link ? 'link-set' : ''}">링크${c.link ? ' ✓' : ''}</button>
-          <button data-act="linkOpen" title="새 탭에서 열어 정확한 링크인지 확인">링크 확인↗</button>
+          <button data-act="linkOpen" title="새 탭에서 열어 정확한 상품페이지로 바로가기">상품페이지 확인↗</button>
         </div>
         <div class="row-btns">
           <button data-act="costPrice">사입가${c.costPrice > 0 ? ' ✓' : ''}</button>
@@ -827,7 +944,6 @@ function renderGrid(){
         <div class="row-btns">
           <button data-act="left">◀</button>
           <button data-act="right">▶</button>
-          <button data-act="toArchive">보관함 저장</button>
           <button data-act="sendFlow" class="link-set">이 카드로 보내기</button>
         </div>
         <div class="row-btns">
@@ -885,9 +1001,10 @@ function renderGrid(){
       };
       inp.click();
     };
-    // 이미지 칸을 클릭하면 포커스만 되고(파일 선택창은 안 뜸) - 그 상태에서 Ctrl+V로 붙여넣기 가능.
-    // 파일을 직접 고르고 싶으면 아래 "파일선택" 버튼을 누른다.
-    wrap.querySelector('.row-btns [data-act="img"]').onclick = imgTrigger;
+    // 이미지 칸을 클릭하면 파일 선택창이 바로 뜨고, 포커스된 상태에서 Ctrl+V로 캡처 이미지도 붙여넣을 수 있다
+    // (예전엔 "파일선택" 버튼이 따로 있었는데, 이미지 칸 자체를 클릭하는 것으로 합쳤다).
+    const imgboxEl = pcard.querySelector('[data-act="img"]');
+    imgboxEl.onclick = imgTrigger;
 
     // 이미지 크기(확대/축소) 슬라이더
     const zoomInput = wrap.querySelector('[data-act="zoom"]');
@@ -911,15 +1028,19 @@ function renderGrid(){
     };
 
     // 이미지 삭제 (자동 매칭된 이미지가 잘못 들어왔을 때 등, 비우고 다시 넣을 수 있게)
-    wrap.querySelector('[data-act="imgDel"]').onclick = ()=>{
-      if(!c.img){ toast('이미 이미지가 없습니다.'); return; }
-      if(!confirm('이 카드의 이미지를 삭제할까요?')) return;
-      c.img = ''; c.imgScale = 100;
-      persistCards(); renderGrid();
-    };
+    // 이미지 위 작은 × 버튼 - 이미지가 있을 때만 나타난다. 이미지 칸 자체의 클릭(파일선택)으로
+    // 이벤트가 새는 걸 막기 위해 stopPropagation 처리.
+    const imgDelBtn = wrap.querySelector('[data-act="imgDel"]');
+    if(imgDelBtn){
+      imgDelBtn.onclick = (e)=>{
+        e.stopPropagation();
+        if(!confirm('이 카드의 이미지를 삭제할까요?')) return;
+        c.img = ''; c.imgScale = 100;
+        persistCards(); renderGrid();
+      };
+    }
 
     // 이미지 칸에 포커스한 상태에서 Ctrl+V로 캡처/복사한 이미지 붙여넣기
-    const imgboxEl = pcard.querySelector('[data-act="img"]');
     imgboxEl.addEventListener('paste', (e)=>{
       const items = (e.clipboardData && e.clipboardData.items) || [];
       for(const item of items){
@@ -992,8 +1113,9 @@ function renderGrid(){
       toast('카드가 복제되었습니다.');
     };
 
-    // 보관함 저장(단일 카드)
-    wrap.querySelector('[data-act="toArchive"]').onclick = ()=> saveCardToArchive(c);
+    // (2026-08-06) "보관함 저장" 버튼은 없앴다 - 대신 카드를 보내면(이 카드로 보내기/Outlook 메일 준비/
+    // 이미지로 복사) 발송이력에 카드 내용까지 통째로 자동 기록되고, 발송이력에서 "편집으로 불러오기"로
+    // 다시 꺼내 쓸 수 있다(saveCardToArchive는 여전히 다른 곳-외근영업 라이브러리 등-에서 쓰이므로 남겨둠).
 
     // 이 카드만 골라 고객 선택 → 방문전/후 선택 → Outlook까지 한번에 진행
     wrap.querySelector('[data-act="sendFlow"]').onclick = ()=> openSendFlowModal(c);
@@ -1109,12 +1231,18 @@ document.getElementById('btnCheckAllLinks').onclick = ()=>{
   overlay.querySelector('#modalCancel').onclick = ()=>{ overlay.style.display='none'; overlay.innerHTML=''; };
 };
 
-// 탭 목록에서 뺀 "HTML 코드" 화면은 공유 탭 하단의 작은 링크로만 남겨둔다 (거의 안 쓰는 기능이라 최소화)
+// 탭 목록에서 뺀 "HTML 코드" 화면은 공유/엑셀연동 하단의 작은 링크로만 남겨둔다 (거의 안 쓰는 기능이라 최소화)
 document.getElementById('linkShowCode').onclick = (e)=>{
   e.preventDefault();
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show'));
+  document.getElementById('workspace_field').classList.remove('show');
+  document.getElementById('workspace_indoor').classList.remove('show');
   document.getElementById('codePanel').classList.add('show');
+};
+document.getElementById('linkBackFromCode').onclick = (e)=>{
+  e.preventDefault();
+  document.getElementById('codePanel').classList.remove('show');
+  showTopTab('indoor');
+  showIndoorSub('share');
 };
 
 // 고객사명을 안 채우고 발송 준비를 누르면 한번 확인한다 (발송이력이 "(미지정)"으로 남는 걸 방지)
@@ -1203,7 +1331,7 @@ function wireArchRowActions(el, id){
   const loadBtn = el.querySelector('[data-act="load"]');
   if(loadBtn) loadBtn.onclick = ()=>{
     cards.push(Object.assign({}, a.config, { id: uid() })); persistCards();
-    document.querySelector('.tab[data-panel="editPanel"]').click();
+    goToEditPanel();
     renderGrid();
     toast('편집 화면에 카드를 추가했습니다');
   };
@@ -1320,12 +1448,24 @@ function renderSendLog(){
             ${STATUS_OPTIONS.map(s=>`<option value="${s}" ${l.status===s?'selected':''}>${s || '(미지정)'}</option>`).join('')}
           </select>
         </td>
-        <td><button class="rowbtn" data-act="del">삭제</button></td>
+        <td>
+          ${l.fullCards && l.fullCards.length ? `<button class="rowbtn" data-act="reload">편집으로 불러오기</button>` : ''}
+          <button class="rowbtn danger" data-act="del">삭제</button>
+        </td>
       </tr>`;
     }).join('')}
     </tbody></table>`;
   wrap.querySelectorAll('tr[data-id]').forEach(tr=>{
     const id = tr.dataset.id;
+    const reloadBtn = tr.querySelector('[data-act="reload"]');
+    if(reloadBtn) reloadBtn.onclick = ()=>{
+      const l = sendLog.find(x=>x.id===id);
+      if(!l || !l.fullCards || l.fullCards.length===0) return;
+      l.fullCards.forEach(c=> cards.push(Object.assign({}, c, { id: uid() })));
+      persistCards();
+      goToEditPanel();
+      toast(`${l.fullCards.length}개 카드를 편집 화면에 불러왔습니다.`);
+    };
     tr.querySelector('[data-act="del"]').onclick = ()=>{
       if(!confirm('이 발송 이력을 삭제할까요?')) return;
       sendLog = sendLog.filter(x=>x.id!==id);
@@ -1442,7 +1582,7 @@ function renderCardSets(){
       if(cards.length>0 && !confirm(`지금 편집 중인 카드 ${cards.length}개를 지우고 "${s.name}" 세트(${s.cards.length}개)로 교체할까요?`)) return;
       cards = s.cards.map(c=>({ ...c, id: uid() }));
       persistCards();
-      document.querySelector('.tab[data-panel="editPanel"]').click();
+      goToEditPanel();
       renderGrid();
       toast(`"${s.name}" 세트를 불러왔습니다.`);
     };
@@ -1484,7 +1624,7 @@ document.getElementById('btnLoadSelected').onclick = ()=>{
   });
   persistCards();
   archSelected.clear();
-  document.querySelector('.tab[data-panel="editPanel"]').click();
+  goToEditPanel();
   renderGrid();
   toast(`선택한 ${count}개 카드를 편집 화면으로 가져왔습니다`);
 };
@@ -1719,7 +1859,7 @@ function renderLibGrid(){
   libSelected = new Set(Array.from(libSelected).filter(id=> archive.some(a=>a.id===id)));
   updateLibSelCount();
   if(archive.length===0){
-    wrap.innerHTML = '<div style="color:#9aa0a6;font-size:13px;">추후 데이터 추가 필요 - 아직 보관함에 저장된 카드가 없습니다. [카드 편집] 화면에서 카드를 만든 뒤 "보관함 저장"을 누르면 이곳에 자동으로 모입니다.</div>';
+    wrap.innerHTML = '<div style="color:#9aa0a6;font-size:13px;">아직 보관함에 저장된 카드가 없습니다. 카드를 만들어 보내면 발송이력에 자동으로 남고, "카드 보관함"에도 필요한 대로 모아둘 수 있습니다.</div>';
     const countEl = document.getElementById('libCount');
     if(countEl) countEl.textContent = '';
     return;
@@ -1909,7 +2049,7 @@ function renderFieldGrid(){
         if(entry.link){ nc.link = entry.link; linkMsg = '상품 링크도 자동으로 채워졌습니다.'; }
       }
       cards.push(nc); persistCards();
-      document.querySelector('.tab[data-panel="editPanel"]').click();
+      goToEditPanel();
       renderGrid();
       toast(`카드 편집 화면에 카드를 추가했습니다. ${linkMsg}`);
     };
@@ -2026,7 +2166,7 @@ function openGalleryCardModal(it){
     nc.link = misumiDetailUrl(it.code);
     cards.push(nc); persistCards();
     overlay.style.display='none'; overlay.innerHTML='';
-    document.querySelector('.tab[data-panel="editPanel"]').click();
+    goToEditPanel();
     renderGrid();
     toast('카드 편집에 카드를 추가했습니다.' + (model ? '' : ' 형번이 비어있으니 "형번 검색"으로 채워주세요.'));
   };
@@ -2044,7 +2184,7 @@ document.getElementById('btnGalleryMakeSelected').onclick = ()=>{
   });
   persistCards();
   gallerySelected.clear();
-  document.querySelector('.tab[data-panel="editPanel"]').click();
+  goToEditPanel();
   renderGrid();
   toast(`카드 ${list.length}개를 카드 편집으로 보냈습니다. 형번은 카드에서 직접 입력하거나 "형번 검색"으로 채워주세요.`);
 };
@@ -2434,7 +2574,7 @@ document.getElementById('btnIndoorMakeCards').onclick = async ()=>{
     localStorage.setItem(LS_REP, distinctManagers[0]);
   }
 
-  document.querySelector('.tab[data-panel="editPanel"]').click();
+  goToEditPanel();
   renderGrid();
   renderIndoorGrid();
 
@@ -3099,7 +3239,7 @@ async function sendCardsMail(cardList, customerName, customerEmail, timing){
   if(mail===null) return; // 커스텀 토큰 입력창에서 취소함
   try{ await writeSpecificCardsToClipboard(cardList); }
   catch(e){ toast('카드 복사 실패: ' + e.message); return; }
-  logSend(customerName, tpl.name);
+  logSend(customerName, tpl.name, cardList);
   const mailto = `mailto:${encodeURIComponent(customerEmail||'')}?subject=${encodeURIComponent(mail.subject)}&body=${encodeURIComponent(mail.body)}`;
   const a = document.createElement('a');
   a.href = mailto; document.body.appendChild(a); a.click(); a.remove();
@@ -3861,7 +4001,7 @@ function renderExcelTable(header, rows){
         custMsg = ` (고객사: ${custName})`;
       }
 
-      document.querySelector('.tab[data-panel="editPanel"]').click();
+      goToEditPanel();
       renderGrid();
       toast('엑셀 값으로 새 카드를 추가했습니다' + custMsg);
     };
