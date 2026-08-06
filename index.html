@@ -30,6 +30,9 @@
   .card-select-row{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-sub); font-weight:700; margin-bottom:6px; cursor:pointer; }
   .card-wrap.excluded .p-card{ opacity:0.4; }
   .p-card{ width:300px; border:1px solid var(--gray-line); border-radius:6px; overflow:hidden; background:#fff; }
+  .p-card.emphasis{ border:3px solid #1a56db; box-shadow:0 0 0 1px #1a56db; }
+  .emphasis-tag{ display:inline-block; background:#dbe6fb; color:#1a56db; font-size:11px; font-weight:800; padding:2px 9px; border-radius:11px; margin-left:6px; }
+  .arch-item.emphasis{ box-shadow:0 0 0 2px #1a56db inset; border-radius:8px; }
   .p-card .head{ background:var(--navy); padding:9px 12px; color:#fff; font-weight:800; font-size:13px; letter-spacing:1px; display:flex; justify-content:space-between; align-items:center; }
   .p-card .head .b{ padding:6px 14px; border-radius:4px; background:#f6c445; color:#1a2233; font-weight:800; font-size:13px; white-space:nowrap; cursor:pointer; }
   .p-card .imgbox{ width:100%; height:230px; background:#ffffff; border-bottom:1px solid var(--gray-line); display:flex; align-items:center; justify-content:center; color:#9aa0a6; font-size:13px; cursor:pointer; overflow:hidden; position:relative; }
@@ -216,6 +219,7 @@
     <span id="libSelCount" style="font-size:12.5px;color:var(--text-sub);">선택 0개</span>
     <button class="btn primary" id="btnLibSendSelected">선택한 카드 함께 보내기</button>
     <button class="btn" id="btnLibAddSelected">선택한 카드 편집에 담기</button>
+    <button class="btn" id="btnLibDeleteSelected" style="color:var(--red);border-color:#f2c7cc;">선택한 카드 삭제</button>
   </div>
   <div class="arch-grid" id="libGrid"></div>
 
@@ -787,7 +791,7 @@ function renderGrid(){
     wrap.className = 'card-wrap' + (c.checked===false ? ' excluded' : '');
     wrap.innerHTML = `
       <label class="card-select-row"><input type="checkbox" data-act="cardSelect" ${c.checked===false ? '' : 'checked'}> 이 카드를 이미지복사/메일 전송에 포함</label>
-      <div class="p-card" data-id="${c.id}">
+      <div class="p-card ${(c._강조&&c._강조.length)?'emphasis':''}" data-id="${c.id}">
         <div class="head">
           MISUMI
           <span class="b" data-act="badge">${c.badge}% 할인</span>
@@ -795,7 +799,7 @@ function renderGrid(){
         <div class="imgbox" data-act="img" tabindex="0" title="클릭: 파일 선택 / 여기 클릭 후 Ctrl+V: 캡처 이미지 붙여넣기">${c.img ? `<img src="${c.img}" style="transform:scale(${(c.imgScale||100)/100});">` : '상품 이미지 (클릭 또는 Ctrl+V)'}<span class="paste-tip">Ctrl+V 가능</span></div>
         ${c.img ? `<div class="zoom-row"><span style="font-size:11px;">크기</span><input type="range" min="50" max="200" value="${c.imgScale||100}" data-act="zoom"><span>${c.imgScale||100}%</span></div>` : ''}
         <div class="body">
-          <span class="tag2" contenteditable="true" data-field="category">${c.category}</span>
+          <span class="tag2" contenteditable="true" data-field="category">${c.category}</span>${(c._강조&&c._강조.length) ? `<span class="emphasis-tag">${c._강조.join(' · ')}</span>` : ''}
           <div class="pname" contenteditable="true" data-field="name">${c.name}</div>
           <div class="row2" contenteditable="true" data-field="model">형번 : ${c.model}</div>
           <div class="row2" contenteditable="true" data-field="delivery">${c.delivery}</div>
@@ -1531,7 +1535,17 @@ function cardHtml(c){
       </tr></table>`
     : '';
   const imgCell = (c.link && c.img) ? `<a href="${c.link}" target="_blank">${imgTag}</a>${clickHintHtml}` : imgTag;
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="1" bordercolor="#e2e5ea" width="250" style="border-collapse:collapse;font-family:${FONT};">
+  const emphasisList = (c._강조 && c._강조.length) ? c._강조 : [];
+  const borderColor = emphasisList.length ? '#1a56db' : '#e2e5ea';
+  const borderWidth = emphasisList.length ? '3' : '1';
+  const emphasisTagHtml = emphasisList.length
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" align="left"><tr>
+        <td bgcolor="#dbe6fb" style="padding:2px 10px;border-radius:11px;">
+          <font face="Malgun Gothic" color="#1a56db" size="1"><b>${emphasisList.join(' · ')}</b></font>
+        </td>
+      </tr></table>`
+    : '';
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="${borderWidth}" bordercolor="${borderColor}" width="250" style="border-collapse:collapse;font-family:${FONT};">
 <tr>
   <td bgcolor="#163a7a" style="padding:10px 14px;">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
@@ -1542,7 +1556,7 @@ function cardHtml(c){
 </tr>
 <tr><td bgcolor="#ffffff" align="center" style="padding:10px;">${imgCell}</td></tr>
 <tr><td style="padding:11px 14px;">
-  <div>&nbsp;<font face="Malgun Gothic" color="#0A4FA3" size="1"><b>${c.category || ''}</b></font>&nbsp;</div>
+  <div>&nbsp;<font face="Malgun Gothic" color="#0A4FA3" size="1"><b>${c.category || ''}</b></font>&nbsp;${emphasisTagHtml}</div>
   <div style="margin-top:8px;"><font face="Malgun Gothic" color="#1a1a1a" size="3"><b>${c.name}</b></font></div>
   <div style="margin-top:4px;"><font face="Malgun Gothic" color="#444444" size="2">형번 : ${c.model}</font></div>
   <div><font face="Malgun Gothic" color="#444444" size="2">${c.delivery}</font></div>
@@ -1715,13 +1729,13 @@ function renderLibGrid(){
   if(countEl) countEl.textContent = `전체 ${archive.length}개 중 ${visible.length}개 표시`;
   if(visible.length===0){ wrap.innerHTML = '<div style="color:#9aa0a6;font-size:13px;">검색 결과가 없습니다.</div>'; return; }
   wrap.innerHTML = visible.map(a=>`
-    <div class="arch-item ${libSelected.has(a.id)?'selected':''}" data-id="${a.id}">
+    <div class="arch-item ${libSelected.has(a.id)?'selected':''} ${(a.config._강조&&a.config._강조.length)?'emphasis':''}" data-id="${a.id}">
       <input type="checkbox" class="sel-check" ${libSelected.has(a.id)?'checked':''}>
       ${archThumb(a.config, 'thumb')}
       <div class="meta">
         <div class="n">${escapeHtml(a.config.name||'')}</div>
         <div class="d">형번 ${escapeHtml(a.config.model||'-')}</div>
-        <div class="d">${escapeHtml(a.config.category||'기타')}</div>
+        <div class="d">${escapeHtml(a.config.category||'기타')}${(a.config._강조&&a.config._강조.length) ? ` <span class="emphasis-tag">${escapeHtml(a.config._강조.join(' · '))}</span>` : ''}</div>
       </div>
       <div class="btns">
         <button data-act="sendOne" style="box-shadow:0 0 0 2px var(--navy) inset;">이 카드로 보내기</button>
@@ -1839,6 +1853,16 @@ document.getElementById('btnLibSendSelected').onclick = ()=>{
   const targets = archive.filter(a=>libSelected.has(a.id));
   if(targets.length===0){ toast('보낼 카드를 먼저 선택하세요.'); return; }
   openSendFlowModal(targets.map(a=>a.config));
+};
+document.getElementById('btnLibDeleteSelected').onclick = ()=>{
+  const targetIds = new Set(Array.from(libSelected));
+  if(targetIds.size===0){ toast('삭제할 카드를 먼저 선택하세요.'); return; }
+  if(!confirm(`선택한 카드 ${targetIds.size}개를 삭제하시겠습니까? (보관함에서도 사라집니다)`)) return;
+  archive = archive.filter(a=> !targetIds.has(a.id));
+  libSelected.clear();
+  persistArchive();
+  renderLibChips(); renderLibGrid();
+  toast(`${targetIds.size}개 카드를 삭제했습니다.`);
 };
 
 function renderFieldGrid(){
