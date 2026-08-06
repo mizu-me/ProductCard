@@ -44,17 +44,17 @@
   .panel.show{ display:block; }
   .hint{ font-size:12.5px; color:var(--text-sub); background:#fff; border:1px solid var(--gray-line); border-radius:8px; padding:12px 16px; margin-bottom:18px; line-height:1.6; }
 
-  .grid{ display:flex; gap:14px; flex-wrap:wrap; }
-  .card-wrap{ width:260px; }
-  .card-select-row{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-sub); font-weight:700; margin-bottom:6px; cursor:pointer; }
+  .grid{ display:flex; gap:12px; flex-wrap:wrap; }
+  .card-wrap{ width:220px; }
+  .card-select-row{ display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-sub); font-weight:700; margin-bottom:6px; cursor:pointer; }
   .card-wrap.excluded .p-card{ opacity:0.4; }
-  .p-card{ width:260px; border:1px solid var(--gray-line); border-radius:6px; overflow:hidden; background:#fff; }
+  .p-card{ width:220px; border:1px solid var(--gray-line); border-radius:6px; overflow:hidden; background:#fff; }
   .p-card.emphasis{ border:3px solid #1a56db; box-shadow:0 0 0 1px #1a56db; }
   .emphasis-tag{ display:inline-block; background:#dbe6fb; color:#1a56db; font-size:11px; font-weight:800; padding:2px 9px; border-radius:11px; margin-left:6px; }
   .arch-item.emphasis{ box-shadow:0 0 0 2px #1a56db inset; border-radius:8px; }
   .p-card .head{ background:var(--navy); padding:9px 12px; color:#fff; font-weight:800; font-size:13px; letter-spacing:1px; display:flex; justify-content:space-between; align-items:center; }
   .p-card .head .b{ padding:6px 14px; border-radius:4px; background:#f6c445; color:#1a2233; font-weight:800; font-size:13px; white-space:nowrap; cursor:pointer; }
-  .p-card .imgbox{ width:100%; height:195px; background:#ffffff; border-bottom:1px solid var(--gray-line); display:flex; align-items:center; justify-content:center; color:#9aa0a6; font-size:13px; cursor:pointer; overflow:hidden; position:relative; }
+  .p-card .imgbox{ width:100%; height:165px; background:#ffffff; border-bottom:1px solid var(--gray-line); display:flex; align-items:center; justify-content:center; color:#9aa0a6; font-size:12px; cursor:pointer; overflow:hidden; position:relative; }
   .p-card .imgbox:focus{ outline:2px solid var(--navy); }
   .p-card .imgbox .paste-tip{ position:absolute; bottom:2px; right:4px; font-size:9px; color:#fff; background:rgba(0,0,0,.45); padding:1px 5px; border-radius:4px; pointer-events:none; }
   .img-x-btn{ position:absolute; top:6px; right:6px; width:22px; height:22px; border-radius:50%; border:none; background:rgba(0,0,0,.55); color:#fff; font-size:14px; line-height:22px; padding:0; cursor:pointer; }
@@ -72,12 +72,12 @@
   .p-card [contenteditable]:focus{ background:#fff8e0; }
 
   .card-actions{ margin-top:8px; display:flex; flex-direction:column; gap:6px; }
-  .row-btns{ display:flex; gap:6px; }
-  .row-btns button{ flex:1; padding:8px; border-radius:6px; border:1px solid var(--gray-line); background:#fff; font-size:12px; font-weight:700; cursor:pointer; }
+  .row-btns{ display:flex; gap:4px; }
+  .row-btns button{ flex:1; padding:6px 3px; border-radius:6px; border:1px solid var(--gray-line); background:#fff; font-size:10.5px; font-weight:700; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .row-btns button.danger{ color:var(--red); border-color:#f2c7cc; background:#fff6f7; }
   .link-set{ box-shadow:0 0 0 2px var(--navy) inset; }
 
-  .add-tile{ width:260px; min-height:195px; border:2px dashed var(--gray-line); border-radius:6px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:6px; color:#9aa0a6; font-weight:700; cursor:pointer; }
+  .add-tile{ width:220px; min-height:165px; border:2px dashed var(--gray-line); border-radius:6px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:6px; color:#9aa0a6; font-weight:700; cursor:pointer; }
   .add-tile:hover{ border-color:var(--navy); color:var(--navy); }
 
   /* 보관함 - 목록형(기본) */
@@ -173,6 +173,7 @@
     <div class="sub">카드의 이미지·텍스트를 직접 클릭해 수정 · 완료 후 이미지로 복사(링크 유지) → Outlook에 Ctrl+V</div>
   </div>
   <div class="top-actions">
+    <button class="btn" id="btnSaveSnapshot" title="지금까지 만든 카드·보관함·발송이력 등을 이 파일 그대로(HTML 한 개) 통째로 저장합니다. 나중에 이 파일만 열면 지금 상태 그대로 이어집니다." style="background:#2e7d32;color:#fff;border-color:#2e7d32;">💾 저장하기</button>
     <span id="repNameDisplay" class="rep-badge" title="담당자 이름 변경"></span>
     <input id="repName" style="display:none;">
     <button class="btn ghost" id="btnResetRepName" title="담당자 이름 변경" style="padding:9px 8px;font-size:12px;">👤</button>
@@ -234,12 +235,13 @@
     <span id="libCount" style="font-size:12px;color:var(--text-sub);align-self:center;"></span>
   </div>
   <div id="libChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
-  <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+  <div style="margin-bottom:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
     <span id="libSelCount" style="font-size:12.5px;color:var(--text-sub);">선택 0개</span>
     <button class="btn primary" id="btnLibSendSelected">선택한 카드 함께 보내기</button>
     <button class="btn" id="btnLibAddSelected">선택한 카드 편집에 담기</button>
     <button class="btn" id="btnLibDeleteSelected" style="color:var(--red);border-color:#f2c7cc;">선택한 카드 삭제</button>
   </div>
+  <div id="libSelList" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:10px;padding:8px 10px;background:#eef2fb;border-radius:8px;"></div>
   <div class="arch-grid" id="libGrid"></div>
 
   <hr style="margin:26px 0;border:none;border-top:1px solid var(--gray-line);">
@@ -795,6 +797,40 @@ function toast(msg){
   setTimeout(()=>t.classList.remove('show'), 2400);
 }
 
+/* ===================== [저장하기] 스냅샷 파일 다운로드 =====================
+   여러 사람이 같은 브라우저를 쓰거나, PC를 바꾸거나, 브라우저 데이터가 지워지면 지금까지 만든
+   카드·보관함·발송이력 등이 통째로 사라질 수 있다. 그걸 막기 위해 "지금 이 화면 그대로(index.html
+   한 개 파일)"에 지금 이 브라우저의 데이터(localStorage, 전부 'cardEditor.'로 시작하는 키)를
+   심어서 다운로드해준다. 이 파일을 나중에 아무 컴퓨터에서나 열면, 처음 열릴 때만 그 데이터로
+   자동으로 채워지고(이미 데이터가 있는 컴퓨터에서 다시 열면 기존 데이터를 덮어쓰지 않는다),
+   그 뒤로는 완전히 독립된 사본으로 계속 쓸 수 있다. */
+document.getElementById('btnSaveSnapshot').onclick = ()=>{
+  try{
+    const snapshot = {};
+    for(let i=0;i<localStorage.length;i++){
+      const k = localStorage.key(i);
+      if(k && k.indexOf('cardEditor.')===0) snapshot[k] = localStorage.getItem(k);
+    }
+    const seedScript = '<script>(function(){try{var snap='
+      + JSON.stringify(JSON.stringify(snapshot))
+      + ';var data=JSON.parse(snap);Object.keys(data).forEach(function(k){if(localStorage.getItem(k)===null){localStorage.setItem(k,data[k]);}});}catch(e){}})();</'
+      + 'script>\n';
+    const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+    const withSeed = html.replace('</head>', seedScript + '</head>');
+    const blob = new Blob([withSeed], { type:'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    a.href = url;
+    a.download = `MISUMI_상품카드_백업_${stamp}.html`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=> URL.revokeObjectURL(url), 5000);
+    toast('백업 파일이 다운로드되었습니다. 이 파일만 열면 지금 상태 그대로 이어집니다.');
+  }catch(e){
+    toast('저장 중 오류가 발생했습니다: ' + e.message);
+  }
+};
+
 /* ===================== 탭 전환 (2026-08-06 재설계) =====================
    이전 버전은 패널(editPanel 등)을 왼쪽 side-nav 옆 슬롯으로 appendChild해서 "옮기는" 방식이었는데,
    슬롯을 비울 때 slotEl.innerHTML=''을 쓰다가 그 안에 들어있던 패널 DOM 자체가 통째로 파괴되는
@@ -922,25 +958,21 @@ function renderGrid(){
       ${marginNoteHtml(c)}
       <div class="card-actions">
         <div class="row-btns">
-          <button data-act="modelSearch">형번 검색 (링크 자동)</button>
+          <button data-act="modelSearch" title="형번 검색 (링크 자동)">형번 검색</button>
+          <button data-act="imgurl" title="이미지 URL 붙여넣기">이미지URL</button>
+          <button data-act="link" class="${c.link ? 'link-set' : ''}" title="상품 링크 직접 입력">링크${c.link ? ' ✓' : ''}</button>
+          <button data-act="linkOpen" title="새 탭에서 열어 정확한 상품페이지로 바로가기">확인↗</button>
         </div>
         <div class="row-btns">
-          <button data-act="imgurl">이미지URL</button>
-          <button data-act="link" class="${c.link ? 'link-set' : ''}">링크${c.link ? ' ✓' : ''}</button>
-          <button data-act="linkOpen" title="새 탭에서 열어 정확한 상품페이지로 바로가기">상품페이지 확인↗</button>
-        </div>
-        <div class="row-btns">
-          <button data-act="costPrice">사입가${c.costPrice > 0 ? ' ✓' : ''}</button>
-          <button data-act="validUntil">유효기간${c.validUntil ? ' ✓' : ''}</button>
-        </div>
-        <div class="row-btns">
-          <button data-act="left">◀</button>
-          <button data-act="right">▶</button>
-          <button data-act="sendFlow" class="link-set">이 카드로 보내기</button>
-        </div>
-        <div class="row-btns">
+          <button data-act="costPrice" title="사입가 입력 (내부용, 이익률 계산)">사입가${c.costPrice > 0 ? ' ✓' : ''}</button>
+          <button data-act="validUntil" title="가격 유효기간 문구 입력">유효기간${c.validUntil ? ' ✓' : ''}</button>
           <button data-act="dup" title="이 카드와 같은 내용으로 하나 더 만들기">복제</button>
-          <button data-act="delete" class="danger">삭제</button>
+          <button data-act="delete" class="danger" title="이 카드 삭제">삭제</button>
+        </div>
+        <div class="row-btns">
+          <button data-act="left" title="앞으로 이동">◀</button>
+          <button data-act="right" title="뒤로 이동">▶</button>
+          <button data-act="sendFlow" class="link-set" style="flex:3;">이 카드로 보내기</button>
         </div>
       </div>
     `;
@@ -1818,12 +1850,14 @@ function getVisibleFieldItems(){
 let libSelected = new Set();
 let libActiveCategory = '';
 function getLibraryList(){ return archive.slice().sort((a,b)=> new Date(b.savedAt) - new Date(a.savedAt)); }
+// 칩은 세부 구분(탈취맵구분 - 예: "리니어 샤프트")이 아니라 대구분(예: "직동부품", 10여개)
+// 기준으로 묶는다 - 탈취맵구분 기준으로 묶으면 칩이 200개 넘게 나와서 오히려 못 쓰게 된다.
 function renderLibChips(){
   const wrap = document.getElementById('libChips');
   if(!wrap) return;
   const all = getLibraryList();
   const counts = {};
-  all.forEach(a=>{ const cat = a.config.category || '기타'; counts[cat] = (counts[cat]||0) + 1; });
+  all.forEach(a=>{ const cat = a.config._대구분 || '기타'; counts[cat] = (counts[cat]||0) + 1; });
   const cats = Object.keys(counts).sort((x,y)=> counts[y]-counts[x]);
   const chips = [{ label: `전체 ${all.length}`, val: '' }].concat(cats.map(c=>({ label: `${c} ${counts[c]}`, val: c })));
   wrap.innerHTML = chips.map(ch=>`<span class="lib-chip" data-val="${escapeHtml(ch.val)}"
@@ -1835,14 +1869,42 @@ function renderLibChips(){
 function getVisibleLibrary(){
   const q = (document.getElementById('libSearch').value || '').trim().toLowerCase();
   return getLibraryList().filter(a=>{
-    if(libActiveCategory && (a.config.category || '기타') !== libActiveCategory) return false;
+    if(libActiveCategory && (a.config._대구분 || '기타') !== libActiveCategory) return false;
     if(!q) return true;
-    return String(a.config.name||'').toLowerCase().includes(q) || String(a.config.model||'').toLowerCase().includes(q);
+    // 형번·상품명뿐 아니라 탈취맵구분(세부 구분명)·대구분 텍스트로도 검색되게 한다
+    // (예: "베어링"이라고 치면 형번을 몰라도 그 구분의 카드가 다 나옴).
+    return String(a.config.name||'').toLowerCase().includes(q)
+      || String(a.config.model||'').toLowerCase().includes(q)
+      || String(a.config.category||'').toLowerCase().includes(q)
+      || String(a.config._대구분||'').toLowerCase().includes(q)
+      || String(a.config._카테고리명||'').toLowerCase().includes(q);
   });
 }
 function updateLibSelCount(){
   const el = document.getElementById('libSelCount');
   if(el) el.textContent = `선택 ${libSelected.size}개`;
+  renderLibSelList();
+}
+// 선택 트레이 - "베어링 검색해서 체크, 다른 상품 검색해서 체크"처럼 검색어를 바꿔가며 골라도
+// 지금까지 뭘 선택해뒀는지 한눈에 보이도록 작은 알약 목록으로 보여준다. 알약을 누르면 선택 해제.
+function renderLibSelList(){
+  const wrap = document.getElementById('libSelList');
+  if(!wrap) return;
+  if(libSelected.size===0){ wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+  wrap.style.display = 'flex';
+  const items = Array.from(libSelected).map(id=> archive.find(a=>a.id===id)).filter(Boolean);
+  wrap.innerHTML = items.map(a=>`<span class="lib-sel-pill" data-id="${a.id}"
+      style="font-size:12px;background:#fff;border:1px solid var(--gray-line);border-radius:999px;padding:3px 8px 3px 10px;display:inline-flex;align-items:center;gap:5px;">
+      ${escapeHtml(a.config.name||a.config.model||'(이름 없음)')}
+      <span data-act="unsel" style="cursor:pointer;color:var(--text-sub);font-weight:800;">×</span>
+    </span>`).join('');
+  wrap.querySelectorAll('.lib-sel-pill [data-act="unsel"]').forEach(x=>{
+    x.onclick = ()=>{
+      const id = x.closest('.lib-sel-pill').dataset.id;
+      libSelected.delete(id);
+      renderLibGrid();
+    };
+  });
 }
 function renderLibGrid(){
   const wrap = document.getElementById('libGrid');
@@ -1866,7 +1928,7 @@ function renderLibGrid(){
       <div class="meta">
         <div class="n">${escapeHtml(a.config.name||'')}</div>
         <div class="d">형번 ${escapeHtml(a.config.model||'-')}</div>
-        <div class="d">${escapeHtml(a.config.category||'기타')}${(a.config._강조&&a.config._강조.length) ? ` <span class="emphasis-tag">${escapeHtml(a.config._강조.join(' · '))}</span>` : ''}</div>
+        <div class="d">${escapeHtml(a.config._대구분||'기타')}${a.config.category ? ` · ${escapeHtml(a.config.category)}` : ''}${(a.config._강조&&a.config._강조.length) ? ` <span class="emphasis-tag">${escapeHtml(a.config._강조.join(' · '))}</span>` : ''}</div>
       </div>
       <div class="btns">
         <button data-act="sendOne" style="box-shadow:0 0 0 2px var(--navy) inset;">이 카드로 보내기</button>
