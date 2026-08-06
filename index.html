@@ -22,38 +22,39 @@
   .tab-sep{ width:1px; align-self:stretch; margin:6px 2px; background:var(--gray-line); }
 
   .rep-badge{ font-size:12.5px; color:#fff; opacity:.9; }
-  .tabs2{ max-width:1180px; margin:18px auto 0; display:flex; gap:10px; padding:0 24px; }
+  .tabs2{ max-width:1500px; margin:18px auto 0; display:flex; gap:10px; padding:0 24px; }
   .tab2{ padding:11px 26px; border-radius:10px; border:1px solid var(--gray-line); background:#fff; font-weight:800; font-size:14.5px; cursor:pointer; color:#555; }
   .tab2.active{ background:var(--navy-dark); color:#fff; border-color:var(--navy-dark); }
-  .workspace{ display:none; max-width:1180px; margin:14px auto 0; padding:0 24px 60px; gap:18px; }
-  .workspace.show{ display:flex; }
-  .side-nav{ width:150px; flex-shrink:0; display:flex; flex-direction:column; gap:4px; }
+  /* 2026-08-06 재설계: 패널(editPanel 등)을 slot 사이로 옮기다가 destructive하게 지워지던
+     이전 버그를 근본적으로 없애기 위해, 패널은 이제 content-area 안에 고정된 채로 절대 옮기지
+     않는다. 왼쪽 side-nav는 버튼 목록일 뿐이라 탭이 바뀔 때마다 다시 그려도 안전하다. */
+  .app-body{ max-width:1500px; margin:14px auto 0; padding:0 24px 60px; display:flex; gap:20px; align-items:flex-start; }
+  .side-nav{ width:150px; flex-shrink:0; display:flex; flex-direction:column; gap:4px; position:sticky; top:14px; }
   .subnav-btn{ padding:10px 12px; border-radius:8px; font-size:13px; font-weight:700; color:#444; cursor:pointer; }
   .subnav-btn:hover{ background:#e8ecf3; }
   .subnav-btn.active{ background:var(--navy-dark); color:#fff; }
   .subnav-btn.minor{ font-size:12px; font-weight:400; color:var(--text-sub); padding:7px 12px; }
   .subnav-sep{ height:1px; background:var(--gray-line); margin:6px 4px; }
-  .main-slot{ flex:1; min-width:0; }
-  .main-slot .panel{ max-width:none; margin:0; padding:0; display:none; }
-  .main-slot .panel.show{ display:block; }
+  .content-area{ flex:1; min-width:0; }
+  .content-area .panel{ max-width:none; margin:0; padding:0; }
   #topBtn{ position:fixed; right:28px; bottom:28px; width:44px; height:44px; border-radius:50%; background:var(--navy-dark); color:#fff; border:none; font-size:18px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.25); display:none; z-index:50; }
   #topBtn.show{ display:block; }
 
-  .panel{ display:none; max-width:1180px; margin:0 auto; padding:18px 24px 60px; }
+  .panel{ display:none; max-width:1500px; margin:0 auto; padding:18px 24px 60px; }
   .panel.show{ display:block; }
   .hint{ font-size:12.5px; color:var(--text-sub); background:#fff; border:1px solid var(--gray-line); border-radius:8px; padding:12px 16px; margin-bottom:18px; line-height:1.6; }
 
-  .grid{ display:flex; gap:16px; flex-wrap:wrap; }
-  .card-wrap{ width:300px; }
+  .grid{ display:flex; gap:14px; flex-wrap:wrap; }
+  .card-wrap{ width:260px; }
   .card-select-row{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-sub); font-weight:700; margin-bottom:6px; cursor:pointer; }
   .card-wrap.excluded .p-card{ opacity:0.4; }
-  .p-card{ width:300px; border:1px solid var(--gray-line); border-radius:6px; overflow:hidden; background:#fff; }
+  .p-card{ width:260px; border:1px solid var(--gray-line); border-radius:6px; overflow:hidden; background:#fff; }
   .p-card.emphasis{ border:3px solid #1a56db; box-shadow:0 0 0 1px #1a56db; }
   .emphasis-tag{ display:inline-block; background:#dbe6fb; color:#1a56db; font-size:11px; font-weight:800; padding:2px 9px; border-radius:11px; margin-left:6px; }
   .arch-item.emphasis{ box-shadow:0 0 0 2px #1a56db inset; border-radius:8px; }
   .p-card .head{ background:var(--navy); padding:9px 12px; color:#fff; font-weight:800; font-size:13px; letter-spacing:1px; display:flex; justify-content:space-between; align-items:center; }
   .p-card .head .b{ padding:6px 14px; border-radius:4px; background:#f6c445; color:#1a2233; font-weight:800; font-size:13px; white-space:nowrap; cursor:pointer; }
-  .p-card .imgbox{ width:100%; height:230px; background:#ffffff; border-bottom:1px solid var(--gray-line); display:flex; align-items:center; justify-content:center; color:#9aa0a6; font-size:13px; cursor:pointer; overflow:hidden; position:relative; }
+  .p-card .imgbox{ width:100%; height:195px; background:#ffffff; border-bottom:1px solid var(--gray-line); display:flex; align-items:center; justify-content:center; color:#9aa0a6; font-size:13px; cursor:pointer; overflow:hidden; position:relative; }
   .p-card .imgbox:focus{ outline:2px solid var(--navy); }
   .p-card .imgbox .paste-tip{ position:absolute; bottom:2px; right:4px; font-size:9px; color:#fff; background:rgba(0,0,0,.45); padding:1px 5px; border-radius:4px; pointer-events:none; }
   .img-x-btn{ position:absolute; top:6px; right:6px; width:22px; height:22px; border-radius:50%; border:none; background:rgba(0,0,0,.55); color:#fff; font-size:14px; line-height:22px; padding:0; cursor:pointer; }
@@ -76,7 +77,7 @@
   .row-btns button.danger{ color:var(--red); border-color:#f2c7cc; background:#fff6f7; }
   .link-set{ box-shadow:0 0 0 2px var(--navy) inset; }
 
-  .add-tile{ width:250px; min-height:230px; border:2px dashed var(--gray-line); border-radius:6px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:6px; color:#9aa0a6; font-weight:700; cursor:pointer; }
+  .add-tile{ width:260px; min-height:195px; border:2px dashed var(--gray-line); border-radius:6px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:6px; color:#9aa0a6; font-weight:700; cursor:pointer; }
   .add-tile:hover{ border-color:var(--navy); color:var(--navy); }
 
   /* 보관함 - 목록형(기본) */
@@ -118,10 +119,10 @@
   .indoor-table .doneLink{ background:none; border:none; color:#2e7d32; font-weight:700; font-size:11.5px; cursor:pointer; padding:0; }
 
   /* 보관함 - 카드형(보조) */
-  .arch-grid{ display:flex; gap:16px; flex-wrap:wrap; }
-  .arch-item{ width:250px; border:1px solid var(--gray-line); border-radius:8px; background:#fff; overflow:hidden; position:relative; }
+  .arch-grid{ display:flex; gap:14px; flex-wrap:wrap; }
+  .arch-item{ width:220px; border:1px solid var(--gray-line); border-radius:8px; background:#fff; overflow:hidden; position:relative; }
   .arch-item.selected{ box-shadow:0 0 0 2px var(--navy) inset; }
-  .arch-item .thumb{ width:100%; height:200px; object-fit:contain; background:#fff; display:block; }
+  .arch-item .thumb{ width:100%; height:175px; object-fit:contain; background:#fff; display:block; }
   .arch-item .sel-check{ position:absolute; top:8px; left:8px; width:20px; height:20px; z-index:2; cursor:pointer; }
   .arch-item .meta{ padding:10px 12px; }
   .arch-item .meta .n{ font-weight:800; font-size:13.5px; margin-bottom:3px; }
@@ -183,34 +184,11 @@
   <div class="tab2" id="topTab_indoor" data-top="indoor">내근영업</div>
 </div>
 
-<div class="workspace show" id="workspace_field">
-  <div class="side-nav" id="fieldSideNav">
-    <div class="subnav-btn" data-key="home">카드 목록</div>
-    <div class="subnav-btn" data-key="addr">메일주소록</div>
-    <div class="subnav-btn" data-key="mail">메일설정</div>
-    <div class="subnav-btn" data-key="sendlog">발송이력</div>
-    <div class="subnav-btn" data-key="arch">카드 보관함</div>
-    <div class="subnav-btn" data-key="bizmail">업무용 메일카드</div>
-  </div>
-  <div class="main-slot" id="fieldMainSlot"></div>
-</div>
-
-<div class="workspace" id="workspace_indoor">
-  <div class="side-nav" id="indoorSideNav">
-    <div class="subnav-btn" data-key="home">캠페인 목록</div>
-    <div class="subnav-btn" data-key="editcard">카드 편집</div>
-    <div class="subnav-btn" data-key="arch">보관함</div>
-    <div class="subnav-btn" data-key="sendlog">발송이력</div>
-    <div class="subnav-btn" data-key="addr">메일주소록</div>
-    <div class="subnav-btn" data-key="mail">메일설정</div>
-    <div class="subnav-sep"></div>
-    <div class="subnav-btn minor" data-key="cust">고객사별</div>
-    <div class="subnav-btn minor" data-key="share">공유/엑셀연동</div>
-  </div>
-  <div class="main-slot" id="indoorMainSlot"></div>
-</div>
-
 <button id="topBtn" title="맨 위로">↑</button>
+
+<div class="app-body">
+  <div class="side-nav" id="sideNav"></div>
+  <div class="content-area">
 
 <div class="panel show" id="editPanel">
   <div class="hint">카드의 이미지·배지·텍스트를 클릭해 직접 수정하세요. 이미지는 이미지 칸을 클릭해 PC 사진을 올리거나, 캡처한 화면을 그대로 <b>Ctrl+V</b>로 붙여넣거나, "이미지URL" 버튼에 kr.misumi-ec.com 상품페이지에서 복사한 이미지 주소를 붙여넣으면 됩니다. 완성되면 "이미지로 복사"로 Outlook에 붙여넣으세요 - 보낸 카드는 발송이력에 자동으로 남아 나중에 다시 불러올 수 있습니다.<br>
@@ -551,6 +529,9 @@
   <div style="text-align:right;"><a href="#" id="linkShowCode" style="font-size:11px;color:var(--text-sub);">HTML 코드 보기 (고급, 잘 안 쓰는 기능)</a></div>
 </div>
 
+  </div>
+</div>
+
 <div id="toast"></div>
 <div id="modalOverlay" class="modal-overlay" style="display:none;"></div>
 
@@ -814,11 +795,13 @@ function toast(msg){
   setTimeout(()=>t.classList.remove('show'), 2400);
 }
 
-/* ===================== 탭 전환 (2026-08-06 개편) =====================
-   기존에는 탭 10개가 전부 최상단에 나란히 있었는데, 지금은 "외근영업"/"내근영업" 2개만
-   최상단에 두고 나머지(메일주소록/메일설정/발송이력/보관함/업무용메일카드/카드편집/고객사별/공유연동)는
-   각 상황에 맞게 왼쪽 세로 메뉴로 옮겼다. 패널 자체(#addrPanel 등)는 그대로 두고, 필요할 때
-   JS로 해당 슬롯(main-slot) 안으로 이동시켜서 보여주는 방식 - 내부 로직/id는 전혀 안 바뀌었다. */
+/* ===================== 탭 전환 (2026-08-06 재설계) =====================
+   이전 버전은 패널(editPanel 등)을 왼쪽 side-nav 옆 슬롯으로 appendChild해서 "옮기는" 방식이었는데,
+   슬롯을 비울 때 slotEl.innerHTML=''을 쓰다가 그 안에 들어있던 패널 DOM 자체가 통째로 파괴되는
+   버그가 있었다(메일설정/업무용카드 탭 내용이 안 보이던 원인). 이번에는 패널을 절대 옮기지 않는다 -
+   처음 위치(content-area 안) 그대로 고정해두고, 어떤 패널을 보여줄지는 예전에 이미 검증된 방식과
+   똑같이 classList.add/remove('show')만으로 정한다. 왼쪽 side-nav는 단순 버튼 목록이라 탭이
+   바뀔 때마다 innerHTML로 다시 그려도 안전하다(내부 상태가 없는 UI라서). */
 const PANEL_RENDER = {
   editPanel: ()=> renderGrid(),
   fieldPanel: ()=>{ renderFieldGrid(); renderGallery(); renderLibChips(); renderLibGrid(); },
@@ -831,63 +814,72 @@ const PANEL_RENDER = {
   bizMailPanel: ()=>{ renderBizMailGrid(); renderBizMailEditor(); },
   sharePanel: ()=>{},
 };
-function mountPanels(panelIds, slotEl){
-  slotEl.innerHTML = '';
-  panelIds.forEach(id=>{
-    const el = document.getElementById(id);
-    slotEl.appendChild(el);
-    el.classList.add('show');
-    if(PANEL_RENDER[id]) PANEL_RENDER[id]();
-  });
-  window.scrollTo({ top: slotEl.getBoundingClientRect().top + window.scrollY - 90, behavior:'instant' });
+const FIELD_SUBNAV = [
+  { key:'home',    label:'카드 목록',       panels:['editPanel','fieldPanel'] },
+  { key:'addr',    label:'메일주소록',      panels:['addrPanel'] },
+  { key:'mail',    label:'메일설정',        panels:['mailPanel'] },
+  { key:'sendlog', label:'발송이력',        panels:['sendLogPanel'] },
+  { key:'arch',    label:'카드 보관함',     panels:['archPanel'] },
+  { key:'bizmail', label:'업무용 메일카드', panels:['bizMailPanel'] },
+];
+const INDOOR_SUBNAV = [
+  { key:'home',     label:'캠페인 목록',    panels:['indoorPanel'] },
+  { key:'editcard', label:'카드 편집',      panels:['editPanel'] },
+  { key:'arch',     label:'보관함',         panels:['archPanel'] },
+  { key:'sendlog',  label:'발송이력',       panels:['sendLogPanel'] },
+  { key:'addr',     label:'메일주소록',     panels:['addrPanel'] },
+  { key:'mail',     label:'메일설정',       panels:['mailPanel'] },
+  { sep:true },
+  { key:'cust',  label:'고객사별',      panels:['custPanel'], minor:true },
+  { key:'share', label:'공유/엑셀연동', panels:['sharePanel'], minor:true },
+];
+let currentTop = 'field';
+let currentSubKey = 'home';
+function renderSideNav(){
+  const items = currentTop==='field' ? FIELD_SUBNAV : INDOOR_SUBNAV;
+  const nav = document.getElementById('sideNav');
+  nav.innerHTML = items.map(it=>{
+    if(it.sep) return '<div class="subnav-sep"></div>';
+    return `<div class="subnav-btn ${it.minor?'minor':''} ${it.key===currentSubKey?'active':''}" data-key="${it.key}">${it.label}</div>`;
+  }).join('');
+  nav.querySelectorAll('.subnav-btn').forEach(b=>{ b.onclick = ()=> showSub(b.dataset.key); });
 }
-const FIELD_SUBNAV = {
-  home:   ['editPanel','fieldPanel'],
-  addr:   ['addrPanel'],
-  mail:   ['mailPanel'],
-  sendlog:['sendLogPanel'],
-  arch:   ['archPanel'],
-  bizmail:['bizMailPanel'],
-};
-const INDOOR_SUBNAV = {
-  home:    ['indoorPanel'],
-  editcard:['editPanel'],
-  arch:    ['archPanel'],
-  sendlog: ['sendLogPanel'],
-  addr:    ['addrPanel'],
-  mail:    ['mailPanel'],
-  cust:    ['custPanel'],
-  share:   ['sharePanel'],
-};
-function showFieldSub(key){
-  document.querySelectorAll('#fieldSideNav .subnav-btn').forEach(b=> b.classList.toggle('active', b.dataset.key===key));
-  mountPanels(FIELD_SUBNAV[key] || FIELD_SUBNAV.home, document.getElementById('fieldMainSlot'));
-}
-function showIndoorSub(key){
-  document.querySelectorAll('#indoorSideNav .subnav-btn').forEach(b=> b.classList.toggle('active', b.dataset.key===key));
-  mountPanels(INDOOR_SUBNAV[key] || INDOOR_SUBNAV.home, document.getElementById('indoorMainSlot'));
-}
-function showTopTab(top){
+function showSub(key){
+  const items = currentTop==='field' ? FIELD_SUBNAV : INDOOR_SUBNAV;
+  const entry = items.find(it=>!it.sep && it.key===key) || items.find(it=>!it.sep);
+  currentSubKey = entry.key;
   document.getElementById('codePanel').classList.remove('show');
+  document.querySelectorAll('.content-area .panel').forEach(p=> p.classList.remove('show'));
+  entry.panels.forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.classList.add('show');
+    // 패널 렌더 함수 하나가 오류를 던져도 side-nav나 다른 패널까지 같이 안 그려지는 일이
+    // 없도록 각각 try/catch로 감싼다 - 문제가 있으면 콘솔에 어떤 패널에서 났는지 로그만 남긴다.
+    if(PANEL_RENDER[id]){
+      try{ PANEL_RENDER[id](); }
+      catch(err){ console.error('[패널 렌더링 오류] ' + id + ':', err); }
+    }
+  });
+  renderSideNav();
+  window.scrollTo({ top:0, behavior:'instant' });
+}
+function showTop(top){
+  currentTop = top;
   document.getElementById('topTab_field').classList.toggle('active', top==='field');
   document.getElementById('topTab_indoor').classList.toggle('active', top==='indoor');
-  document.getElementById('workspace_field').classList.toggle('show', top==='field');
-  document.getElementById('workspace_indoor').classList.toggle('show', top==='indoor');
-  if(top==='field') showFieldSub('home'); else showIndoorSub('home');
+  showSub('home');
 }
 // 예전 코드 곳곳에서 "카드 편집 탭으로 이동"을 document.querySelector('.tab[data-panel="editPanel"]').click()
 // 로 했었는데, 그 탭 자체가 없어져서 goToEditPanel()로 전부 바꿨다. 지금 내근영업을 보고 있었으면
 // 내근영업의 "카드 편집" 서브탭으로, 아니면(기본은 외근영업) 외근영업의 기본 화면(카드 목록)으로 이동한다.
 function goToEditPanel(){
-  const indoorActive = document.getElementById('workspace_indoor').classList.contains('show');
-  if(indoorActive){ showIndoorSub('editcard'); }
-  else { showTopTab('field'); }
+  if(currentTop==='indoor'){ showSub('editcard'); }
+  else { showTop('field'); }
 }
-document.getElementById('topTab_field').onclick = ()=> showTopTab('field');
-document.getElementById('topTab_indoor').onclick = ()=> showTopTab('indoor');
-document.querySelectorAll('#fieldSideNav .subnav-btn').forEach(b=>{ b.onclick = ()=> showFieldSub(b.dataset.key); });
-document.querySelectorAll('#indoorSideNav .subnav-btn').forEach(b=>{ b.onclick = ()=> showIndoorSub(b.dataset.key); });
-showTopTab('field');
+document.getElementById('topTab_field').onclick = ()=> showTop('field');
+document.getElementById('topTab_indoor').onclick = ()=> showTop('indoor');
+showTop('field');
 
 /* TOP 버튼 - 카드/목록이 길어졌을 때 최상단으로 바로 이동 */
 window.addEventListener('scroll', ()=>{
@@ -1234,15 +1226,14 @@ document.getElementById('btnCheckAllLinks').onclick = ()=>{
 // 탭 목록에서 뺀 "HTML 코드" 화면은 공유/엑셀연동 하단의 작은 링크로만 남겨둔다 (거의 안 쓰는 기능이라 최소화)
 document.getElementById('linkShowCode').onclick = (e)=>{
   e.preventDefault();
-  document.getElementById('workspace_field').classList.remove('show');
-  document.getElementById('workspace_indoor').classList.remove('show');
+  document.querySelectorAll('.content-area .panel').forEach(p=> p.classList.remove('show'));
   document.getElementById('codePanel').classList.add('show');
 };
 document.getElementById('linkBackFromCode').onclick = (e)=>{
   e.preventDefault();
   document.getElementById('codePanel').classList.remove('show');
-  showTopTab('indoor');
-  showIndoorSub('share');
+  showTop('indoor');
+  showSub('share');
 };
 
 // 고객사명을 안 채우고 발송 준비를 누르면 한번 확인한다 (발송이력이 "(미지정)"으로 남는 걸 방지)
