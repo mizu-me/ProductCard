@@ -538,6 +538,7 @@
 <div id="modalOverlay" class="modal-overlay" style="display:none;"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 /* ===================== 데이터 모델 ===================== */
 const LS_CARDS = 'cardEditor.cards.v1';
@@ -2764,10 +2765,55 @@ async function loadSeriesMaster(){
   }catch(e){ seriesMaster = {}; modelDataMissing = true; }
   return seriesMaster;
 }
+
+/* ----- 조각(shard/stem) 파일이 700~1300개라 낱개 업로드가 불가능하다.
+   그래서 폴더를 그대로 zip 하나로 압축해 올리면(data/shards.zip, data/stems.zip),
+   브라우저에서 JSZip으로 열어 그 안의 xx.json 조각을 필요할 때마다 꺼내 쓴다.
+   프로그램 설치 없이 "폴더 우클릭 → 보내기 → 압축(ZIP) 폴더"만으로 준비할 수 있다.
+   zip이 아직 없으면(404) 예전 방식(개별 파일 fetch)으로 자동 폴백한다. */
+let shardsZipPromise = null;
+function loadShardsZip(){
+  if(!shardsZipPromise){
+    shardsZipPromise = fetch(`${MODEL_DATA_BASE}/shards.zip`)
+      .then(res=> res.ok ? res.blob() : null)
+      .then(blob=> blob ? JSZip.loadAsync(blob) : null)
+      .catch(()=> null);
+  }
+  return shardsZipPromise;
+}
+let stemsZipPromise = null;
+function loadStemsZip(){
+  if(!stemsZipPromise){
+    stemsZipPromise = fetch(`${MODEL_DATA_BASE}/stems.zip`)
+      .then(res=> res.ok ? res.blob() : null)
+      .then(blob=> blob ? JSZip.loadAsync(blob) : null)
+      .catch(()=> null);
+  }
+  return stemsZipPromise;
+}
+// zip을 폴더째로 압축하면 "shards/MS.json"처럼 폴더가 껴서 들어갈 수도 있어서,
+// 정확한 경로를 모르더라도 파일명(마지막 부분)만 일치하면 찾아내도록 한다.
+function findZipEntry(zip, filename){
+  if(!zip) return null;
+  const direct = zip.file(filename);
+  if(direct) return direct;
+  const matches = zip.file(new RegExp('(^|/)' + filename.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '$'));
+  return (matches && matches[0]) || null;
+}
 async function fetchModelShard(prefix){
   if(modelShardCache.has(prefix)) return modelShardCache.get(prefix);
+  const fname = `${encodeURIComponent(prefix)}.json`;
   try{
-    const res = await fetch(`${MODEL_DATA_BASE}/shards/${encodeURIComponent(prefix)}.json`);
+    const zip = await loadShardsZip();
+    const entry = findZipEntry(zip, fname);
+    if(entry){
+      const data = JSON.parse(await entry.async('string'));
+      modelShardCache.set(prefix, data);
+      return data;
+    }
+  }catch(e){ /* zip 실패 시 아래 개별 파일 폴백 시도 */ }
+  try{
+    const res = await fetch(`${MODEL_DATA_BASE}/shards/${fname}`);
     if(!res.ok){ modelShardCache.set(prefix, []); return []; }
     const data = await res.json();
     modelShardCache.set(prefix, data);
@@ -2785,8 +2831,18 @@ const stemShardCache = new Map();
 function stemOf(modelUpper){ return modelUpper.replace(/[-_]?\d+(\.\d+)?$/, ''); }
 async function fetchStemShard(prefix){
   if(stemShardCache.has(prefix)) return stemShardCache.get(prefix);
+  const fname = `${encodeURIComponent(prefix)}.json`;
   try{
-    const res = await fetch(`${MODEL_DATA_BASE}/stems/${encodeURIComponent(prefix)}.json`);
+    const zip = await loadStemsZip();
+    const entry = findZipEntry(zip, fname);
+    if(entry){
+      const data = JSON.parse(await entry.async('string'));
+      stemShardCache.set(prefix, data);
+      return data;
+    }
+  }catch(e){ /* zip 실패 시 아래 개별 파일 폴백 시도 */ }
+  try{
+    const res = await fetch(`${MODEL_DATA_BASE}/stems/${fname}`);
     if(!res.ok){ stemShardCache.set(prefix, []); return []; }
     const data = await res.json();
     stemShardCache.set(prefix, data);
@@ -2801,7 +2857,7 @@ async function resolveModelEntry(modelRaw){
   if(!model) return { model:'', seriesCode:'', seriesName:'', estimated:false, link:'' };
   const q = model.toUpperCase();
   await loadSeriesMaster();
-  const prefix = q.slice(0,1);
+  const prefix = q.slice(0,2);
   const shard = await fetchModelShard(prefix);
   const exact = shard.find(row=> row[0].toUpperCase() === q);
   if(exact){
@@ -2854,11 +2910,59 @@ function probeImageUrl(url, timeoutMs){
     img.src = url;
   });
 }
+
+/* ----- 로컬 사진(약 5,800장)도 낱개 업로드가 불가능해서 여러 개의 zip(data/image_parts/images_partN.zip)
+   으로 나눠 올린다. 실제로 사진이 필요한 시점에만(카드에 사진을 채울 때) 전부 한 번 받아서
+   파일명 기준으로 합쳐 캐시해두고, 그 뒤로는 다시 받지 않는다.
+   카드에는 blob: 링크가 아니라 base64(data:) 형태로 저장해야 localStorage에 저장된 뒤
+   브라우저를 껐다 켜도(또는 "저장하기"로 받은 백업 파일을 열어도) 사진이 계속 보인다. */
+const IMAGE_ZIP_PARTS = 9; // data/image_parts/images_part1.zip ~ images_part9.zip
+let imageZipEntriesPromise = null;
+function loadImageZipEntries(){
+  if(!imageZipEntriesPromise){
+    const parts = Array.from({length: IMAGE_ZIP_PARTS}, (_, i)=> i+1);
+    imageZipEntriesPromise = Promise.all(parts.map(n=>
+      fetch(`${MODEL_DATA_BASE}/image_parts/images_part${n}.zip`)
+        .then(res=> res.ok ? res.blob() : null)
+        .then(blob=> blob ? JSZip.loadAsync(blob) : null)
+        .catch(()=> null)
+    )).then(zips=>{
+      const map = new Map(); // 파일명(마지막 경로 조각) -> JSZip 파일 객체
+      zips.forEach(zip=>{
+        if(!zip) return;
+        zip.forEach((relPath, entry)=>{
+          if(entry.dir) return;
+          map.set(relPath.split('/').pop(), entry);
+        });
+      });
+      return map;
+    }).catch(()=> new Map());
+  }
+  return imageZipEntriesPromise;
+}
+const imageDataUrlCache = new Map(); // 파일명 -> data:... base64 (한 번 만든 건 재사용)
+async function resolveLocalImageFile(filename){
+  if(imageDataUrlCache.has(filename)) return imageDataUrlCache.get(filename);
+  try{
+    const entries = await loadImageZipEntries();
+    const entry = entries.get(filename);
+    if(!entry) return '';
+    const base64 = await entry.async('base64');
+    const ext = (filename.split('.').pop() || 'jpg').toLowerCase();
+    const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+    const url = `data:${mime};base64,${base64}`;
+    imageDataUrlCache.set(filename, url);
+    return url;
+  }catch(e){ return ''; }
+}
 async function resolveSeriesImage(seriesCode){
   if(!seriesCode) return '';
   const manifest = await loadSeriesImageManifest();
   const localFile = manifest[seriesCode];
-  if(localFile) return `data/images/${localFile}`;
+  if(localFile){
+    const dataUrl = await resolveLocalImageFile(localFile);
+    if(dataUrl) return dataUrl;
+  }
   const base = `https://content.misumi-ec.com/image/upload/t_search_view_a/v1/p/jp/product/series/${seriesCode}/${seriesCode}_001`;
   for(const ext of ['jpg','png']){
     const url = `${base}.${ext}`;
@@ -2871,10 +2975,10 @@ async function searchModels(query){
   const q = query.trim().toUpperCase();
   if(q.length < 2) return { tooShort:true, list:[] };
   await loadSeriesMaster();
-  // 조각 파일을 손으로 업로드해야 하는 환경이라 앞 1글자 기준으로만 나눔(build_data.py와 동일 기준).
-  // 그 1글자 조각만 한 번 받아오면, "e" -> "ea" -> "eas"처럼 더 입력하는 건 추가 요청 없이
+  // 실제 배포된 조각 파일(data/shards/*.json)이 형번 앞 2글자 기준으로 나뉘어 있으므로 그에 맞춘다.
+  // 앞 2글자 조각만 한 번 받아오면, "ms" -> "ms3" -> "ms3-"처럼 더 입력하는 건 추가 요청 없이
   // 이미 받은 데이터 안에서 즉시 필터링된다.
-  const prefix = q.slice(0,1);
+  const prefix = q.slice(0,2);
   const shard = await fetchModelShard(prefix);
   let list = shard.filter(row=> row[0].toUpperCase().startsWith(q)).slice(0,30)
     .map(row=>({ model: row[0], seriesCode: row[1], seriesName: seriesMaster[row[1]] || '', estimated:false }));
