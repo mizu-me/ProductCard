@@ -2933,7 +2933,7 @@ function probeImageUrl(url, timeoutMs){
    파일명 기준으로 합쳐 캐시해두고, 그 뒤로는 다시 받지 않는다.
    카드에는 blob: 링크가 아니라 base64(data:) 형태로 저장해야 localStorage에 저장된 뒤
    브라우저를 껐다 켜도(또는 "저장하기"로 받은 백업 파일을 열어도) 사진이 계속 보인다. */
-const IMAGE_ZIP_PARTS = 5; // data/images_part1.zip ~ images_part5.zip (2026-08-07 최신 이미지 폴더 기준 재생성)
+const IMAGE_ZIP_PARTS = 12; // data/images_part1.zip ~ images_part12.zip (2026-08-07 GitHub 25MB 업로드 제한 여유있게 8MB 이하로 재분할)
 let imageZipEntriesPromise = null;
 function loadImageZipEntries(){
   if(!imageZipEntriesPromise){
