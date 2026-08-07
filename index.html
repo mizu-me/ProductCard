@@ -2911,28 +2911,31 @@ function probeImageUrl(url, timeoutMs){
   });
 }
 
-/* ----- 로컬 사진(약 5,800장)도 낱개 업로드가 불가능해서 여러 개의 zip(data/image_parts/images_partN.zip)
-   으로 나눠 올린다. 실제로 사진이 필요한 시점에만(카드에 사진을 채울 때) 전부 한 번 받아서
+/* ----- 로컬 사진(약 5,800장)도 낱개 업로드가 불가능해서 여러 개의 zip(data/images_partN.zip)
+   으로 나눠 올린다(하위 폴더 없이 data 바로 밑 - GitHub 업로드 화면에서 경로를 매번 안 쳐도 되게).
+   실제로 사진이 필요한 시점에만(카드에 사진을 채울 때) 전부 한 번 받아서
    파일명 기준으로 합쳐 캐시해두고, 그 뒤로는 다시 받지 않는다.
    카드에는 blob: 링크가 아니라 base64(data:) 형태로 저장해야 localStorage에 저장된 뒤
    브라우저를 껐다 켜도(또는 "저장하기"로 받은 백업 파일을 열어도) 사진이 계속 보인다. */
-const IMAGE_ZIP_PARTS = 9; // data/image_parts/images_part1.zip ~ images_part9.zip
+const IMAGE_ZIP_PARTS = 14; // data/images_part1.zip ~ images_part14.zip
 let imageZipEntriesPromise = null;
 function loadImageZipEntries(){
   if(!imageZipEntriesPromise){
     const parts = Array.from({length: IMAGE_ZIP_PARTS}, (_, i)=> i+1);
     imageZipEntriesPromise = Promise.all(parts.map(n=>
-      fetch(`${MODEL_DATA_BASE}/image_parts/images_part${n}.zip`)
+      fetch(`${MODEL_DATA_BASE}/images_part${n}.zip`)
         .then(res=> res.ok ? res.blob() : null)
         .then(blob=> blob ? JSZip.loadAsync(blob) : null)
         .catch(()=> null)
     )).then(zips=>{
-      const map = new Map(); // 파일명(마지막 경로 조각) -> JSZip 파일 객체
+      const map = new Map(); // 파일명(마지막 경로 조각, 소문자) -> JSZip 파일 객체
+      // 파일명 대소문자가 series_images.json과 실제 zip 안 파일명이 다를 수 있어서(예: .jpg vs .JPG)
+      // 키를 항상 소문자로 저장해두고, 찾을 때도 소문자로 변환해서 찾는다(대소문자 무관 매칭).
       zips.forEach(zip=>{
         if(!zip) return;
         zip.forEach((relPath, entry)=>{
           if(entry.dir) return;
-          map.set(relPath.split('/').pop(), entry);
+          map.set(relPath.split('/').pop().toLowerCase(), entry);
         });
       });
       return map;
@@ -2945,7 +2948,7 @@ async function resolveLocalImageFile(filename){
   if(imageDataUrlCache.has(filename)) return imageDataUrlCache.get(filename);
   try{
     const entries = await loadImageZipEntries();
-    const entry = entries.get(filename);
+    const entry = entries.get(String(filename).toLowerCase());
     if(!entry) return '';
     const base64 = await entry.async('base64');
     const ext = (filename.split('.').pop() || 'jpg').toLowerCase();
