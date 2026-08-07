@@ -2933,11 +2933,15 @@ function probeImageUrl(url, timeoutMs){
    파일명 기준으로 합쳐 캐시해두고, 그 뒤로는 다시 받지 않는다.
    카드에는 blob: 링크가 아니라 base64(data:) 형태로 저장해야 localStorage에 저장된 뒤
    브라우저를 껐다 켜도(또는 "저장하기"로 받은 백업 파일을 열어도) 사진이 계속 보인다. */
-const IMAGE_ZIP_PARTS = 12; // data/images_part1.zip ~ images_part12.zip (2026-08-07 GitHub 25MB 업로드 제한 여유있게 8MB 이하로 재분할)
+// 새 이미지를 추가할 때마다 이 숫자를 손으로 고쳐야 했던 게 매번 실수/번거로움의 원인이었음.
+// 이제는 "최대 이 번호까지는 있을 수 있다"는 넉넉한 상한선일 뿐 - 실제 존재하는 파일만 자동으로 찾아서 쓴다.
+// 즉, 새 zip을 images_part(다음 번호).zip 이름으로 GitHub data/ 폴더에 추가로 올리기만 하면 되고,
+// 이 파일(index.html)은 더 이상 고칠 필요가 없다. (상한선을 넘길 만큼 늘어나면 그때 숫자만 올려주면 됨)
+const IMAGE_ZIP_PARTS_MAX = 60;
 let imageZipEntriesPromise = null;
 function loadImageZipEntries(){
   if(!imageZipEntriesPromise){
-    const parts = Array.from({length: IMAGE_ZIP_PARTS}, (_, i)=> i+1);
+    const parts = Array.from({length: IMAGE_ZIP_PARTS_MAX}, (_, i)=> i+1);
     imageZipEntriesPromise = Promise.all(parts.map(n=>
       fetch(`${MODEL_DATA_BASE}/images_part${n}.zip`)
         .then(res=> res.ok ? res.blob() : null)
