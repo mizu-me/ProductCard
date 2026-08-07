@@ -16,7 +16,7 @@
   .btn.primary{ background:var(--navy-dark); color:#fff; border-color:var(--navy-dark); }
   .btn.ghost{ background:transparent; color:#fff; border-color:rgba(255,255,255,.5); }
 
-  .tabs{ max-width:1180px; margin:18px auto 0; display:flex; align-items:flex-end; gap:8px; padding:0 24px; flex-wrap:wrap; }
+  .tabs{ max-width:1500px; margin:18px auto 0; display:flex; align-items:flex-end; gap:8px; padding:0 24px; flex-wrap:wrap; }
   .tab{ padding:9px 16px; border-radius:8px 8px 0 0; border:1px solid var(--gray-line); border-bottom:none; background:#fff; font-weight:700; font-size:13px; cursor:pointer; color:#555; }
   .tab.active{ background:var(--navy-dark); color:#fff; }
   .tab-sep{ width:1px; align-self:stretch; margin:6px 2px; background:var(--gray-line); }
@@ -43,6 +43,10 @@
   .panel{ display:none; max-width:1500px; margin:0 auto; padding:18px 24px 60px; }
   .panel.show{ display:block; }
   .hint{ font-size:12.5px; color:var(--text-sub); background:#fff; border:1px solid var(--gray-line); border-radius:8px; padding:12px 16px; margin-bottom:18px; line-height:1.6; }
+  /* "설명" 토글로 화면 위쪽 안내문을 숨기면, 카드 목록 등 실제 작업 영역이 스크롤 없이 더 많이 보인다.
+     내용 자체는 그대로 DOM에 남아있고 화면에서만 감추는 것이라 다른 기능에는 영향이 없다. */
+  body.hide-hints .hint{ display:none; }
+  #btnToggleHints.on{ background:rgba(255,255,255,.25); }
 
   .grid{ display:flex; gap:12px; flex-wrap:wrap; }
   .card-wrap{ width:220px; }
@@ -174,6 +178,7 @@
   </div>
   <div class="top-actions">
     <button class="btn" id="btnSaveSnapshot" title="지금까지 만든 카드·보관함·발송이력 등을 이 파일 그대로(HTML 한 개) 통째로 저장합니다. 나중에 이 파일만 열면 지금 상태 그대로 이어집니다." style="background:#2e7d32;color:#fff;border-color:#2e7d32;">💾 저장하기</button>
+    <button class="btn ghost" id="btnToggleHints" title="각 화면 위쪽 설명 문구를 숨기거나 다시 보이게 합니다 (내용에는 영향 없음)" style="padding:9px 8px;font-size:12px;">💡 설명</button>
     <span id="repNameDisplay" class="rep-badge" title="담당자 이름 변경"></span>
     <input id="repName" style="display:none;">
     <button class="btn ghost" id="btnResetRepName" title="담당자 이름 변경" style="padding:9px 8px;font-size:12px;">👤</button>
@@ -344,7 +349,7 @@
   <div id="indoorWrap" style="max-height:560px;overflow:auto;border:1px solid var(--gray-line);border-radius:8px;"></div>
 </div>
 
-<div class="panel" id="codePanel" style="max-width:1180px;margin:0 auto;">
+<div class="panel" id="codePanel" style="max-width:900px;margin:0 auto;">
   <div style="margin-bottom:10px;"><a href="#" id="linkBackFromCode" style="font-size:12.5px;color:var(--text-sub);">← 뒤로</a></div>
   <div class="hint">아래 코드를 복사해 Outlook 서명/본문 HTML 소스에 붙여넣을 수 있습니다.</div>
   <textarea id="codeOut" style="width:100%;height:340px;font-family:monospace;font-size:12px;padding:12px;border:1px solid var(--gray-line);border-radius:8px;"></textarea>
@@ -611,6 +616,20 @@ function persistArchive(){
   localStorage.setItem(FLAG, '1');
 })();
 
+// 2026-08-07 일회성 정리 (2차): 사진이 한 번도 확보된 적 없던 20개 카테고리를 목록에서 아예 뺐다
+// (회사 결정 - 사진 못 구할 상품은 카드로 안 보여준다). 이미 보관함에 들어간 사용자는 한 번만 지워준다.
+(function cleanupRemovedNoImageCards(){
+  const FLAG = 'cardEditor.cleanup_20260807_noimage20';
+  if(localStorage.getItem(FLAG)) return;
+  const staleCodes = new Set(['M0802010000','M0413000000','M3301010200','M3301150000','M1003020000',
+    'M1904030000','M3301040100','M1904010000','M1801020000','M3301040200','M0118010000','M3303160000',
+    'M1903020000','M0602090000','M1908050000','M0412020000','M1904050000','M0303080000','M1805090000','M1904020000']);
+  const before = archive.length;
+  archive = archive.filter(a=> !(a.config && staleCodes.has(a.config._카테고리코드)));
+  if(archive.length !== before){ persistArchive(); }
+  localStorage.setItem(FLAG, '1');
+})();
+
 // 앞으로도 "회사 대표 카드"가 나중에 목록에서 빠지는 경우를 대비한 일반적인 정리 로직.
 // loadPreparedCards()가 매번 호출하며, "회사에서 자동으로 넣어준 카드"(_출처 마킹된 것)이면서
 // 지금 data/prepared_cards.json에 더 이상 없는 카테고리코드면 자동으로 정리한다.
@@ -688,6 +707,24 @@ function showRepGateIfNeeded(force){
 document.getElementById('btnResetRepName').onclick = ()=> showRepGateIfNeeded(true);
 document.getElementById('repNameDisplay').style.cursor = 'pointer';
 document.getElementById('repNameDisplay').onclick = ()=> showRepGateIfNeeded(true);
+
+// 설명 문구 숨기기/보이기 - 화면 공간을 더 활용하고 싶을 때 쓰는 토글. 상태는 기기별로 기억된다.
+const LS_HIDE_HINTS = 'cardEditor.hideHints.v1';
+function applyHintsVisibility(){
+  const hidden = localStorage.getItem(LS_HIDE_HINTS) === '1';
+  document.body.classList.toggle('hide-hints', hidden);
+  const btn = document.getElementById('btnToggleHints');
+  if(btn){
+    btn.classList.toggle('on', hidden);
+    btn.textContent = hidden ? '💡 설명 보기' : '💡 설명';
+  }
+}
+document.getElementById('btnToggleHints').onclick = ()=>{
+  const hidden = localStorage.getItem(LS_HIDE_HINTS) === '1';
+  localStorage.setItem(LS_HIDE_HINTS, hidden ? '0' : '1');
+  applyHintsVisibility();
+};
+applyHintsVisibility();
 
 const LS_CUSTOMER_EMAIL = 'cardEditor.customerEmail.v1';
 const customerEmailInput = document.getElementById('customerEmail');
