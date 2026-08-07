@@ -221,6 +221,11 @@
 
 <div class="panel" id="fieldPanel">
   <div class="hint">
+    <b>경제형 대표상품 라인업</b> - 자주 찾는 22개 대표 카테고리를 검색/필터와 무관하게 이 탭 맨 위에 항상 고정해뒀습니다.
+  </div>
+  <div class="arch-grid" id="pinnedGrid" style="margin-bottom:24px;"></div>
+
+  <div class="hint">
     외근 중에도 빠르게 상품 카드를 만들 수 있는 탭입니다. 사무실에서 [카드 편집]으로 직접 하나씩 만드는 대신,
     미리 준비된 상품 데이터 엑셀(형번·이미지·가격)을 올려두고 형번이나 상품명 일부만 검색해서 바로 카드를 만드세요.<br>
     엑셀에는 <b>형번</b>(필수), <b>상품명·이미지URL·정가(단가)·판매가·카테고리·납기</b>(선택) 열이 있으면 자동으로 인식됩니다.
@@ -2121,6 +2126,51 @@ async function loadPreparedCards(){
 }
 document.getElementById('btnLoadPreparedCards').onclick = loadPreparedCards;
 
+/* 경제형 대표상품 라인업(외근영업 탭 최상단 고정 22개) - data/pinned_products.json에서 읽어와
+   검색/필터와 무관하게 항상 이 자리에 고정 순서대로 보여준다. 기존 "보관함(archive)" 로직과는
+   완전히 분리되어 있어서(별도 배열·별도 그리드), 이 기능이 실패해도 기존 라이브러리 동작에는 영향이 없다. */
+async function loadPinnedProducts(){
+  const wrap = document.getElementById('pinnedGrid');
+  if(!wrap) return;
+  try{
+    const res = await fetch('data/pinned_products.json');
+    if(!res.ok) return; // 아직 파일이 없으면 조용히 넘어간다 (준비 전 상태)
+    let list = await res.json();
+    if(!Array.isArray(list) || list.length===0) return;
+    list = list.slice().sort((a,b)=> (a._고정순서||999) - (b._고정순서||999));
+    await Promise.all(list.map(async c=>{
+      if(!c.img && c._시리즈코드){
+        try{ const url = await resolveSeriesImage(c._시리즈코드); if(url) c.img = url; }catch(e){}
+      }
+    }));
+    wrap.innerHTML = list.map(c=>`
+      <div class="arch-item" data-pinid="${c.id}">
+        ${archThumb(c, 'thumb')}
+        <div class="meta">
+          <div class="n">${escapeHtml(c.name||'')}</div>
+          <div class="d">형번 ${escapeHtml(c.model||'-')}</div>
+          <div class="d">${escapeHtml(c.category||'')}</div>
+        </div>
+        <div class="btns">
+          <button data-act="sendOne" style="box-shadow:0 0 0 2px var(--navy) inset;">이 카드로 보내기</button>
+          <button data-act="addOne">편집에 담기</button>
+        </div>
+      </div>
+    `).join('');
+    wrap.querySelectorAll('.arch-item').forEach(el=>{
+      const id = el.dataset.pinid;
+      const c = list.find(x=>x.id===id);
+      if(!c) return;
+      el.querySelector('[data-act="sendOne"]').onclick = ()=> openSendFlowModal(Object.assign({}, c));
+      el.querySelector('[data-act="addOne"]').onclick = ()=>{
+        cards.push(Object.assign({}, c, { id: uid() })); persistCards();
+        toast(`"${c.name}" 카드를 [카드 편집]에 담았습니다.`);
+      };
+    });
+  }catch(e){ console.warn('경제형 라인업 로드 실패:', e); }
+}
+loadPinnedProducts();
+
 document.getElementById('libSearch').oninput = renderLibGrid;
 document.getElementById('btnLibAddSelected').onclick = ()=>{
   const targets = archive.filter(a=>libSelected.has(a.id));
@@ -3008,26 +3058,36 @@ function probeImageUrl(url, timeoutMs){
 // 즉, 새 zip을 images_part(다음 번호).zip 이름으로 GitHub data/ 폴더에 추가로 올리기만 하면 되고,
 // 이 파일(index.html)은 더 이상 고칠 필요가 없다. (상한선을 넘길 만큼 늘어나면 그때 숫자만 올려주면 됨)
 const IMAGE_ZIP_PARTS_MAX = 60;
+// 번호 붙은 파트(images_part1.zip...) 말고, 이름을 따로 붙여 올린 zip이 있으면 여기에 추가하면 된다
+// (예: 경제형 라인업 이미지를 담은 "ECONOMY.zip"). 번호 규칙을 안 따라도 되게 하기 위한 예외 목록.
+const EXTRA_IMAGE_ZIP_NAMES = ['ECONOMY'];
 let imageZipEntriesPromise = null;
+let imageZipStemMapPromise = null; // 확장자 없이 "파일명(코드)"만으로도 찾을 수 있게 하는 보조 맵
 function loadImageZipEntries(){
   if(!imageZipEntriesPromise){
-    const parts = Array.from({length: IMAGE_ZIP_PARTS_MAX}, (_, i)=> i+1);
-    imageZipEntriesPromise = Promise.all(parts.map(n=>
-      fetch(`${MODEL_DATA_BASE}/images_part${n}.zip`)
+    const numberedParts = Array.from({length: IMAGE_ZIP_PARTS_MAX}, (_, i)=> `images_part${i+1}`);
+    const allParts = numberedParts.concat(EXTRA_IMAGE_ZIP_NAMES);
+    imageZipEntriesPromise = Promise.all(allParts.map(name=>
+      fetch(`${MODEL_DATA_BASE}/${name}.zip`)
         .then(res=> res.ok ? res.blob() : null)
         .then(blob=> blob ? JSZip.loadAsync(blob) : null)
         .catch(()=> null)
     )).then(zips=>{
       const map = new Map(); // 파일명(마지막 경로 조각, 소문자) -> JSZip 파일 객체
+      const stemMap = new Map(); // 확장자를 뗀 파일명(소문자) -> JSZip 파일 객체 (시리즈코드로 바로 찾을 때 씀)
       // 파일명 대소문자가 series_images.json과 실제 zip 안 파일명이 다를 수 있어서(예: .jpg vs .JPG)
       // 키를 항상 소문자로 저장해두고, 찾을 때도 소문자로 변환해서 찾는다(대소문자 무관 매칭).
       zips.forEach(zip=>{
         if(!zip) return;
         zip.forEach((relPath, entry)=>{
           if(entry.dir) return;
-          map.set(relPath.split('/').pop().toLowerCase(), entry);
+          const fname = relPath.split('/').pop().toLowerCase();
+          map.set(fname, entry);
+          const stem = fname.replace(/\.[^.]+$/, '');
+          if(!stemMap.has(stem)) stemMap.set(stem, entry);
         });
       });
+      imageZipStemMapPromise = Promise.resolve(stemMap);
       return map;
     }).catch(()=> new Map());
   }
@@ -3057,20 +3117,41 @@ function shrinkDataUrl(dataUrl, maxDim){
     }catch(e){ resolve(dataUrl); }
   });
 }
-const imageDataUrlCache = new Map(); // 파일명 -> data:... base64 (한 번 만든 건 재사용)
+const imageDataUrlCache = new Map(); // 캐시 키(파일명 또는 코드) -> data:... base64 (한 번 만든 건 재사용)
+async function resolveZipEntryToDataUrl(cacheKey, entry, extHint){
+  if(imageDataUrlCache.has(cacheKey)) return imageDataUrlCache.get(cacheKey);
+  try{
+    const base64 = await entry.async('base64');
+    const ext = (extHint || entry.name.split('.').pop() || 'jpg').toLowerCase();
+    const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+    const rawUrl = `data:${mime};base64,${base64}`;
+    const url = await shrinkDataUrl(rawUrl, 320);
+    imageDataUrlCache.set(cacheKey, url);
+    return url;
+  }catch(e){ return ''; }
+}
 async function resolveLocalImageFile(filename){
   if(imageDataUrlCache.has(filename)) return imageDataUrlCache.get(filename);
   try{
     const entries = await loadImageZipEntries();
     const entry = entries.get(String(filename).toLowerCase());
     if(!entry) return '';
-    const base64 = await entry.async('base64');
-    const ext = (filename.split('.').pop() || 'jpg').toLowerCase();
-    const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
-    const rawUrl = `data:${mime};base64,${base64}`;
-    const url = await shrinkDataUrl(rawUrl, 320);
-    imageDataUrlCache.set(filename, url);
-    return url;
+    return resolveZipEntryToDataUrl(filename, entry, filename.split('.').pop());
+  }catch(e){ return ''; }
+}
+// 시리즈코드와 이미지 파일명이 확장자만 빼면 똑같은 경우가 대부분이라(예: 110310551609.jpg),
+// series_images.json에 매핑이 없어도 이 방식으로 바로 찾아본다 - 새 zip을 올릴 때마다
+// series_images.json까지 매번 갱신해야 하는 번거로움을 줄여준다.
+async function resolveLocalImageByCode(code){
+  if(!code) return '';
+  const stemKey = `#stem:${code}`;
+  if(imageDataUrlCache.has(stemKey)) return imageDataUrlCache.get(stemKey);
+  try{
+    await loadImageZipEntries(); // stemMap이 여기서 함께 채워짐
+    const stemMap = await (imageZipStemMapPromise || Promise.resolve(new Map()));
+    const entry = stemMap.get(String(code).toLowerCase());
+    if(!entry) return '';
+    return resolveZipEntryToDataUrl(stemKey, entry);
   }catch(e){ return ''; }
 }
 async function resolveSeriesImage(seriesCode){
@@ -3081,6 +3162,9 @@ async function resolveSeriesImage(seriesCode){
     const dataUrl = await resolveLocalImageFile(localFile);
     if(dataUrl) return dataUrl;
   }
+  // manifest에 없어도, 파일명이 시리즈코드와 그대로 같으면(확장자만 다름) 이걸로 바로 찾는다.
+  const byCode = await resolveLocalImageByCode(seriesCode);
+  if(byCode) return byCode;
   const base = `https://content.misumi-ec.com/image/upload/t_search_view_a/v1/p/jp/product/series/${seriesCode}/${seriesCode}_001`;
   for(const ext of ['jpg','png']){
     const url = `${base}.${ext}`;
