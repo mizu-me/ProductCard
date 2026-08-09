@@ -226,6 +226,11 @@
   <div class="arch-grid" id="pinnedGrid" style="margin-bottom:24px;"></div>
 
   <div class="hint">
+    <b>경제형 전체 라인업</b> - 카테고리별 대표 품목의 사진과 상품페이지 링크만 간단히 모아둔 목록입니다(가격/형번은 아직 미확인). 카테고리를 눌러 펼쳐보세요.
+  </div>
+  <div id="allCatSections" style="margin-bottom:24px;"></div>
+
+  <div class="hint">
     외근 중에도 빠르게 상품 카드를 만들 수 있는 탭입니다. 사무실에서 [카드 편집]으로 직접 하나씩 만드는 대신,
     미리 준비된 상품 데이터 엑셀(형번·이미지·가격)을 올려두고 형번이나 상품명 일부만 검색해서 바로 카드를 만드세요.<br>
     엑셀에는 <b>형번</b>(필수), <b>상품명·이미지URL·정가(단가)·판매가·카테고리·납기</b>(선택) 열이 있으면 자동으로 인식됩니다.
@@ -2171,6 +2176,69 @@ async function loadPinnedProducts(){
 }
 loadPinnedProducts();
 
+/* 경제형 전체 라인업 - data/economy_all_categories.json (카테고리별 대표 품목, 사진+상품페이지 링크만 간단히).
+   가격/형번 등은 아직 확인 전이라 넣지 않는다. 카드 편집으로 담기보다는 "상품페이지 열기" 용도가 중심. */
+async function loadAllCategories(){
+  const wrap = document.getElementById('allCatSections');
+  if(!wrap) return;
+  try{
+    const res = await fetch('data/economy_all_categories.json');
+    if(!res.ok) return;
+    const list = await res.json();
+    if(!Array.isArray(list) || list.length===0) return;
+    const byCat = {};
+    list.forEach(it=>{
+      if(!byCat[it.category]) byCat[it.category] = [];
+      byCat[it.category].push(it);
+    });
+    wrap.innerHTML = Object.keys(byCat).map((cat, idx)=>{
+      const items = byCat[cat];
+      return `
+      <details class="allcat-section" ${idx<2 ? 'open' : ''} style="margin-bottom:10px;border:1px solid var(--gray-line);border-radius:8px;">
+        <summary style="cursor:pointer;padding:10px 14px;font-weight:600;font-size:13.5px;background:#f7f8fa;border-radius:8px;">
+          ${escapeHtml(cat)} <span style="color:var(--text-sub);font-weight:400;">(${items.length}개)</span>
+        </summary>
+        <div class="arch-grid" style="padding:12px;" data-cat="${escapeHtml(cat)}"></div>
+      </details>`;
+    }).join('');
+    Object.keys(byCat).forEach(cat=>{
+      const items = byCat[cat];
+      const grid = wrap.querySelector(`.arch-grid[data-cat="${cssEscape(cat)}"]`);
+      if(!grid) return;
+      grid.innerHTML = items.map((it, i)=>{
+        const directImg = `https://kr.misumi-ec.com/pr/vona/economy/images/index/${it.code}.jpg`;
+        const link = `https://kr.misumi-ec.com/vona2/${it.path}`;
+        return `
+        <div class="arch-item" data-catcode="${cat}__${i}">
+          <img class="thumb" src="${directImg}" alt="${escapeHtml(it.name)}"
+            onerror="handleAllCatThumbError(this, '${it.code}')">
+          <div class="meta">
+            <div class="n">${escapeHtml(it.name)}</div>
+            <div class="d">${escapeHtml(cat)}</div>
+          </div>
+          <div class="btns">
+            <a class="btn" href="${link}" target="_blank" rel="noopener" style="text-decoration:none;text-align:center;display:inline-block;">상품페이지 열기</a>
+          </div>
+        </div>`;
+      }).join('');
+    });
+  }catch(e){ console.warn('경제형 전체 라인업 로드 실패:', e); }
+}
+function cssEscape(s){ return String(s).replace(/["\\]/g, '\\$&'); }
+function handleAllCatThumbError(imgEl, code){
+  imgEl.onerror = null;
+  resolveLocalImageByCode(code).then(u=>{
+    if(u){ imgEl.src = u; }
+    else {
+      const div = document.createElement('div');
+      div.className = 'thumb-empty';
+      div.innerHTML = '사진<br>없음';
+      imgEl.replaceWith(div);
+    }
+  });
+}
+loadAllCategories();
+
 document.getElementById('libSearch').oninput = renderLibGrid;
 document.getElementById('btnLibAddSelected').onclick = ()=>{
   const targets = archive.filter(a=>libSelected.has(a.id));
@@ -3060,7 +3128,7 @@ function probeImageUrl(url, timeoutMs){
 const IMAGE_ZIP_PARTS_MAX = 60;
 // 번호 붙은 파트(images_part1.zip...) 말고, 이름을 따로 붙여 올린 zip이 있으면 여기에 추가하면 된다
 // (예: 경제형 라인업 이미지를 담은 "ECONOMY.zip"). 번호 규칙을 안 따라도 되게 하기 위한 예외 목록.
-const EXTRA_IMAGE_ZIP_NAMES = ['ECONOMY'];
+const EXTRA_IMAGE_ZIP_NAMES = ['ECONOMY', 'TRANSMISSION13', 'TRANSMISSION_EXTRA2', 'TRANSMISSION_FIX3', 'TRANSMISSION_FIX_IDLER', 'TRANSMISSION_FIX_GEAR', 'ALLCAT_1', 'ALLCAT_2', 'ALLCAT_3', 'ALLCAT_4'];
 let imageZipEntriesPromise = null;
 let imageZipStemMapPromise = null; // 확장자 없이 "파일명(코드)"만으로도 찾을 수 있게 하는 보조 맵
 function loadImageZipEntries(){
