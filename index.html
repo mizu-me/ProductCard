@@ -142,6 +142,18 @@
   .arch-item .meta{ padding:10px 12px; }
   .arch-item .meta .n{ font-weight:800; font-size:13.5px; margin-bottom:3px; }
   .arch-item .meta .d{ font-size:11.5px; color:var(--text-sub); }
+
+  /* 편집 화면 - 체크된 카드 가로 스크롤 캐러셀 */
+  .detail-scroll-btn{ position:absolute; top:50%; transform:translateY(-50%); z-index:3; width:32px; height:32px; border-radius:50%; border:1px solid var(--gray-line); background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.15); font-size:13px; font-weight:900; color:var(--navy); cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .detail-scroll-btn:hover{ background:var(--navy); color:#fff; }
+  #detailTrack{ scrollbar-width:thin; }
+  #detailTrack::-webkit-scrollbar{ height:8px; }
+  #detailTrack::-webkit-scrollbar-thumb{ background:var(--gray-line); border-radius:4px; }
+
+  /* 왼쪽 목록 - 검색 중 추가 가능한 카탈로그 상품 */
+  .catalog-add-header{ padding:10px 12px 4px; font-size:11px; font-weight:800; color:var(--text-sub); background:#fafbfc; border-top:1px solid var(--gray-line); }
+  .card-row.catalog-add-row{ border-left:3px solid transparent; }
+  .card-row.catalog-add-row .add-mark{ margin-left:auto; font-size:11px; font-weight:800; color:var(--navy); white-space:nowrap; }
   .arch-item .btns{ display:flex; gap:6px; padding:0 12px 12px; }
   .arch-item .btns button{ flex:1; padding:7px; border-radius:6px; border:1px solid var(--gray-line); background:#fff; font-size:11.5px; font-weight:700; cursor:pointer; }
 
@@ -1183,29 +1195,66 @@ function renderGrid(){
   updateCardSelCount();
 }
 
+// 검색 중일 때, 아직 담기지 않은 매출TOP22/전체152 카탈로그 상품도 왼쪽 목록 바로 아래에 보여줘서
+// 맨 아래 브라우징 섹션까지 스크롤하지 않고도 바로 클릭해서 담을 수 있게 한다.
+function getCatalogAddMatches(){
+  const q = cardListQuery.trim().toLowerCase();
+  if(!q) return [];
+  const out = [];
+  pinnedProductsList.forEach(c=>{
+    if(pinnedSelected.has(c.id)) return;
+    if((c.name||'').toLowerCase().includes(q) || (c.model||'').toLowerCase().includes(q) || (c.category||'').toLowerCase().includes(q)){
+      out.push({ kind:'pinned', key:c.id, name:c.name, sub: c.model ? '형번 '+c.model : (c.category||''), imgSrc:c.img||'' });
+    }
+  });
+  allCatFlatList.forEach(it=>{
+    if(allCatSelectedMap.has(it._key)) return;
+    if((it.name||'').toLowerCase().includes(q) || (it.category||'').toLowerCase().includes(q) || (it.code||'').toLowerCase().includes(q)){
+      out.push({ kind:'allcat', key:it._key, name:it.name, sub: it.category||'', imgSrc: `https://kr.misumi-ec.com/pr/vona/economy/images/index/${it.code}.jpg`, code: it.code });
+    }
+  });
+  return out.slice(0, 24); // 너무 길어지지 않도록 상한
+}
+function catalogAddSectionHtml(matches){
+  if(matches.length===0) return '';
+  return `<div class="catalog-add-header">🔍 검색된 상품 (클릭하면 바로 담깁니다)</div>` +
+    matches.map(m=>`
+      <div class="card-row catalog-add-row" data-kind="${m.kind}" data-key="${escapeHtml(String(m.key))}">
+        <div class="row-thumb">${m.imgSrc ? `<img src="${m.imgSrc}"${m.code ? ` onerror="handleAllCatThumbError(this,'${m.code}')"` : ''}>` : ''}</div>
+        <div class="row-info">
+          <div class="row-name">${escapeHtml(m.name||'상품명 없음')}</div>
+          <div class="row-model">${escapeHtml(m.sub||'')}</div>
+        </div>
+        <span class="add-mark">+ 담기</span>
+      </div>
+    `).join('');
+}
+
 function renderCardListPane(){
   const wrap = document.getElementById('cardListPane');
   if(!wrap) return;
-  if(cards.length===0){
-    wrap.innerHTML = '<div style="padding:24px 16px;text-align:center;color:#9aa0a6;font-size:12.5px;line-height:1.6;">아직 카드가 없습니다.<br>아래 "+ 카드 추가"를 눌러 시작하세요.</div>';
-    return;
-  }
   const list = getFilteredCardsForList();
-  if(list.length===0){
-    wrap.innerHTML = '<div style="padding:24px 16px;text-align:center;color:#9aa0a6;font-size:12.5px;">검색 결과가 없습니다.</div>';
-    return;
-  }
-  wrap.innerHTML = list.map(c=>`
-    <div class="card-row${c.checked!==false?' active':''}" data-id="${c.id}">
-      <input type="checkbox" class="row-chk" data-act="rowSelect" ${c.checked===false?'':'checked'} title="체크하면 오른쪽 편집화면에 나타나고, 메일 전송/이미지복사에도 포함됩니다" onclick="event.stopPropagation()">
-      <div class="row-thumb">${c.img?`<img src="${c.img}">`:''}</div>
-      <div class="row-info">
-        <div class="row-name">${escapeHtml(c.name||'상품명 없음')}${c.checked===false?' <span style="color:#b0b6c0;font-weight:400;">(제외)</span>':''}</div>
-        <div class="row-model">${c.model ? '형번 '+escapeHtml(c.model) : escapeHtml(c.category||'')}</div>
+  const matches = getCatalogAddMatches();
+  let html = '';
+  if(cards.length===0){
+    html += '<div style="padding:24px 16px;text-align:center;color:#9aa0a6;font-size:12.5px;line-height:1.6;">아직 카드가 없습니다.<br>아래 "+ 카드 추가"를 누르거나, 검색해서 상품을 바로 담아보세요.</div>';
+  } else if(list.length===0){
+    html += '<div style="padding:24px 16px;text-align:center;color:#9aa0a6;font-size:12.5px;">담아둔 카드 중에는 검색 결과가 없습니다.</div>';
+  } else {
+    html += list.map(c=>`
+      <div class="card-row${c.checked!==false?' active':''}" data-id="${c.id}">
+        <input type="checkbox" class="row-chk" data-act="rowSelect" ${c.checked===false?'':'checked'} title="체크하면 오른쪽 편집화면에 나타나고, 메일 전송/이미지복사에도 포함됩니다" onclick="event.stopPropagation()">
+        <div class="row-thumb">${c.img?`<img src="${c.img}">`:''}</div>
+        <div class="row-info">
+          <div class="row-name">${escapeHtml(c.name||'상품명 없음')}${c.checked===false?' <span style="color:#b0b6c0;font-weight:400;">(제외)</span>':''}</div>
+          <div class="row-model">${c.model ? '형번 '+escapeHtml(c.model) : escapeHtml(c.category||'')}</div>
+        </div>
       </div>
-    </div>
-  `).join('');
-  wrap.querySelectorAll('.card-row').forEach(row=>{
+    `).join('');
+  }
+  html += catalogAddSectionHtml(matches);
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('.card-row:not(.catalog-add-row)').forEach(row=>{
     const id = row.dataset.id;
     const toggle = (checked)=>{
       const c = cards.find(x=>x.id===id);
@@ -1225,6 +1274,24 @@ function renderCardListPane(){
       toggle(c.checked===false);
     });
   });
+  wrap.querySelectorAll('.catalog-add-row').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      const kind = row.dataset.kind, key = row.dataset.key;
+      const nameEl = row.querySelector('.row-name');
+      const label = nameEl ? nameEl.textContent : '상품';
+      if(kind==='pinned'){
+        const c = pinnedProductsList.find(x=>x.id===key);
+        if(!c) return;
+        toggleCatalogItem(pinnedSelected, key, ()=> Object.assign({}, c, { id: uid() }));
+      } else {
+        const it = allCatByKey[key];
+        if(!it) return;
+        const imgEl = document.querySelector(`#allCatSections .arch-item[data-key="${cssEscape(key)}"] img.thumb`);
+        toggleCatalogItem(allCatSelectedMap, key, ()=> allCatCardObj(it, imgEl));
+      }
+      toast(`${label}이(가) 편집 목록에 추가되었습니다.`);
+    });
+  });
 }
 document.getElementById('btnAddCardList').onclick = ()=>{
   const nc = defaultCard();
@@ -1234,72 +1301,48 @@ document.getElementById('btnAddCardList').onclick = ()=>{
   renderGrid();
 };
 
-// (2026-08-09 재설계) 체크된 카드가 여러 장이면 전부 세로로 길게 늘어놓아서 스크롤이 너무 길어진다는
-// 피드백을 반영해, 평소엔 작은 타일로 옆으로 나란히 놓고(그리드), 그중 하나를 클릭했을 때만 그 카드가
-// 그 자리에서 크게 펼쳐져 실제 편집(이미지·텍스트·링크)이 가능하게 바꿨다. 한 번에 하나만 펼쳐진다.
-let expandedCardId = null;
+// (2026-08-09 재설계 v2) 작은 타일로 접었다 펼치는 방식이 여전히 세로 공간을 많이 잡아먹는다는
+// 피드백을 반영해, 체크된 카드는 항상 전체 크기로 옆에 나란히 붙여 보여준다(가로 스크롤).
+// 카드가 많아 화면 폭을 넘으면 좌우 화살표 버튼으로 넘겨볼 수 있다.
 function renderCardDetailPane(){
   const wrap = document.getElementById('cardDetailPane');
   if(!wrap) return;
   const list = checkedOrder.map(id=> cards.find(x=>x.id===id)).filter(Boolean);
   if(list.length===0){
-    expandedCardId = null;
-    wrap.style.cssText = 'background:#fff;border:1px solid var(--gray-line);border-radius:10px;padding:20px;';
+    // (주의) flex:1;min-width:0;은 원래 HTML의 인라인 스타일로, 이 패널이 가로 스크롤 영역 폭을
+    // 넘어서지 않고 왼쪽 목록 옆에 알맞게 붙어있게 해준다. cssText를 통째로 비우면 이게 같이
+    // 사라져서 카드가 많을 때 패널 전체가 옆으로 한없이 넓어지는 버그가 있었다 - 항상 같이 넣어준다.
+    wrap.style.cssText = 'flex:1;min-width:0;background:#fff;border:1px solid var(--gray-line);border-radius:10px;padding:20px;';
     wrap.innerHTML = '<div style="padding:80px 20px;text-align:center;color:#9aa0a6;font-size:13px;line-height:1.8;">왼쪽 목록에서 카드를 체크하면<br>여기에 편집 화면이 나타납니다.<br>(체크한 순서 그대로 보여지고, 메일·이미지 전송에도 그대로 쓰입니다)</div>';
     return;
   }
-  // 펼쳐뒀던 카드가 체크 해제/삭제로 사라졌으면, 방금 체크한 마지막 카드를 대신 펼쳐서 바로 편집할 수 있게 한다.
-  if(!list.some(c=>c.id===expandedCardId)) expandedCardId = list[list.length-1].id;
-  wrap.style.cssText = '';
+  wrap.style.cssText = 'flex:1;min-width:0;';
   const banner = list.length>1
-    ? `<div style="font-size:12.5px;color:var(--navy);font-weight:700;background:#eef3fb;border-radius:8px;padding:9px 14px;margin-bottom:12px;">✓ 체크된 카드 ${list.length}개가 체크한 순서 그대로 함께 전송됩니다. 작은 카드를 클릭하면 여기서 바로 편집할 수 있습니다.</div>`
+    ? `<div style="font-size:12.5px;color:var(--navy);font-weight:700;background:#eef3fb;border-radius:8px;padding:9px 14px;margin-bottom:12px;">✓ 체크된 카드 ${list.length}개가 체크한 순서 그대로 함께 전송됩니다. 옆으로 넘기면서 각각 편집할 수 있습니다.</div>`
     : '';
-  const gridHtml = list.map(c=> c.id===expandedCardId ? expandedBlockHtml(c) : compactTileHtml(c)).join('');
-  wrap.innerHTML = banner + `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;align-items:start;">${gridHtml}</div>`;
-
-  list.forEach(c=>{
-    if(c.id===expandedCardId){
-      wireExpandedBlock(wrap.querySelector(`.detail-card-block[data-id="${c.id}"]`));
-    } else {
-      wireCompactTile(wrap.querySelector(`.compact-tile[data-id="${c.id}"]`));
-    }
-  });
-}
-
-function compactTileHtml(c){
-  return `
-    <div class="compact-tile" data-id="${c.id}" style="cursor:pointer;border:1px solid var(--gray-line);border-radius:10px;background:#fff;padding:10px;">
-      <div style="height:72px;background:#f2f4f7;border-radius:6px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;">${c.img ? `<img src="${c.img}" style="max-width:100%;max-height:100%;object-fit:contain;">` : '<span style="font-size:10.5px;color:#9aa0a6;">이미지 없음</span>'}</div>
-      <div style="font-size:11.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(c.name||'상품명 없음')}</div>
-      <div style="font-size:10.5px;color:var(--text-sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px;">${c.model ? '형번 '+escapeHtml(c.model) : escapeHtml(c.category||'')}</div>
-      <button data-act="tileDelete" class="danger" style="width:100%;font-size:10.5px;padding:5px;">삭제</button>
+  const cardsHtml = list.map(c=> expandedBlockHtml(c)).join('');
+  wrap.innerHTML = banner + `
+    <div style="position:relative;">
+      ${list.length>1 ? `<button type="button" id="detailScrollPrev" class="detail-scroll-btn" style="left:-16px;">◀</button>` : ''}
+      <div id="detailTrack" style="display:flex;gap:14px;overflow-x:auto;scroll-behavior:smooth;padding:2px 4px 12px;">${cardsHtml}</div>
+      ${list.length>1 ? `<button type="button" id="detailScrollNext" class="detail-scroll-btn" style="right:-16px;">▶</button>` : ''}
     </div>`;
-}
-function wireCompactTile(tile){
-  if(!tile) return;
-  const id = tile.dataset.id;
-  tile.addEventListener('click', (e)=>{
-    if(e.target.closest('[data-act="tileDelete"]')) return;
-    expandedCardId = id;
-    renderCardDetailPane();
-  });
-  tile.querySelector('[data-act="tileDelete"]').onclick = (e)=>{
-    e.stopPropagation();
-    if(!confirm('이 카드를 삭제할까요?')) return;
-    const i = cards.findIndex(x=>x.id===id);
-    if(i<0) return;
-    cards.splice(i,1);
-    checkedOrder = checkedOrder.filter(x=>x!==id);
-    persistCards(); renderGrid(); syncCatalogSelections();
-  };
+
+  list.forEach(c=> wireExpandedBlock(wrap.querySelector(`.detail-card-block[data-id="${c.id}"]`)));
+
+  const track = document.getElementById('detailTrack');
+  const prevBtn = document.getElementById('detailScrollPrev');
+  const nextBtn = document.getElementById('detailScrollNext');
+  if(track && prevBtn && nextBtn){
+    const step = ()=> Math.min(track.clientWidth * 0.9, 320);
+    prevBtn.onclick = ()=> track.scrollBy({left: -step(), behavior:'smooth'});
+    nextBtn.onclick = ()=> track.scrollBy({left: step(), behavior:'smooth'});
+  }
 }
 
 function expandedBlockHtml(c){
   return `
-    <div class="detail-card-block" data-id="${c.id}" style="grid-column:1/-1;background:#fff;border:1px solid var(--gray-line);border-radius:10px;padding:20px;">
-      <div style="display:flex;justify-content:flex-end;margin-bottom:2px;">
-        <span data-act="collapse" style="cursor:pointer;font-size:11.5px;color:var(--text-sub);">▲ 접기</span>
-      </div>
+    <div class="detail-card-block" data-id="${c.id}" style="flex:0 0 260px;background:#fff;border:1px solid var(--gray-line);border-radius:10px;padding:16px;">
       <label class="card-select-row"><input type="checkbox" data-act="cardSelect" checked> 이 카드를 이미지복사/메일 전송에 포함 (체크 해제하면 이 화면에서도 사라집니다)</label>
       <div class="p-card ${(c._강조&&c._강조.length)?'emphasis':''}" data-id="${c.id}">
         <div class="head">
@@ -1454,12 +1497,6 @@ function wireExpandedBlock(block){
     persistCards();
     updateCardSelCount();
     renderCardListPane();
-    renderCardDetailPane();
-  };
-
-  // 접기 - 다시 작은 타일로 돌아간다 (여러 카드를 옆으로 나란히 보기 위함)
-  block.querySelector('[data-act="collapse"]').onclick = ()=>{
-    expandedCardId = null;
     renderCardDetailPane();
   };
 }
