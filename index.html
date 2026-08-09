@@ -49,6 +49,15 @@
   #btnToggleHints.on{ background:rgba(255,255,255,.25); }
 
   .grid{ display:flex; gap:12px; flex-wrap:wrap; }
+  .card-row{ display:flex; align-items:center; gap:8px; padding:9px 12px; border-bottom:1px solid var(--gray-line); border-left:3px solid transparent; cursor:pointer; }
+  .card-row:last-child{ border-bottom:none; }
+  .card-row:hover{ background:#fafbfc; }
+  .card-row.active{ background:#eef3fb; border-left-color:var(--navy); }
+  .card-row .row-thumb{ width:38px; height:38px; border-radius:5px; background:#f2f4f7; flex-shrink:0; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+  .card-row .row-thumb img{ width:100%; height:100%; object-fit:contain; }
+  .card-row .row-info{ min-width:0; flex:1; }
+  .card-row .row-name{ font-size:12.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card-row .row-model{ font-size:11px; color:var(--text-sub); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .card-wrap{ width:220px; }
   .card-select-row{ display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-sub); font-weight:700; margin-bottom:6px; cursor:pointer; }
   .card-wrap.excluded .p-card{ opacity:0.4; }
@@ -216,10 +225,22 @@
     <button class="btn" id="btnBulkDelete" style="color:var(--red);border-color:#f2c7cc;">체크된 카드 삭제</button>
     <span id="cardSelCount" style="font-size:12.5px;color:var(--text-sub);"></span>
   </div>
-  <div class="grid" id="grid"></div>
+  <div style="display:flex;gap:16px;align-items:flex-start;">
+    <div style="width:300px;flex-shrink:0;border:1px solid var(--gray-line);border-radius:10px;background:#fff;overflow:hidden;">
+      <div style="padding:10px;border-bottom:1px solid var(--gray-line);">
+        <input id="cardListSearch" placeholder="형번/상품명 검색" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--gray-line);border-radius:6px;font-size:12.5px;">
+      </div>
+      <div id="cardListPane" style="max-height:680px;overflow-y:auto;"></div>
+      <div id="btnAddCardList" style="text-align:center;padding:10px;font-size:12.5px;font-weight:700;color:var(--navy);cursor:pointer;border-top:1px solid var(--gray-line);">+ 카드 추가</div>
+    </div>
+    <div id="cardDetailPane" style="flex:1;min-width:0;background:#fff;border:1px solid var(--gray-line);border-radius:10px;padding:20px;"></div>
+  </div>
 </div>
 
 <div class="panel" id="fieldPanel">
+  <div style="position:sticky;top:0;z-index:5;background:var(--gray-bg);padding-bottom:10px;margin-bottom:6px;">
+    <input id="globalProductSearch" placeholder="🔍 형번 또는 상품명으로 전체 검색 (대표상품 · 전체 라인업 · 라이브러리 · 엑셀 카탈로그 한번에)" style="width:100%;box-sizing:border-box;padding:12px 16px;border:1px solid var(--gray-line);border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.05);">
+  </div>
   <div class="hint" style="background:#eef3fb;border-left:3px solid var(--navy);">
     <span style="background:var(--navy);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:6px;">매출 TOP 22</span>
     <b>경제형 대표상품 라인업</b> - 형번·가격까지 확인된 22개 핵심 상품입니다. 수정 없이 바로 보내도 되는 완성 카드예요.
@@ -952,7 +973,8 @@ const PANEL_RENDER = {
   sharePanel: ()=>{},
 };
 const FIELD_SUBNAV = [
-  { key:'home',    label:'카드 목록',       panels:['editPanel','fieldPanel'] },
+  { key:'home',     label:'카드 목록',       panels:['editPanel','fieldPanel'] },
+  { key:'editcard', label:'카드 편집',       panels:['editPanel'] },
   { key:'addr',    label:'메일주소록',      panels:['addrPanel'] },
   { key:'mail',    label:'메일설정',        panels:['mailPanel'] },
   { key:'sendlog', label:'발송이력',        panels:['sendLogPanel'] },
@@ -1031,19 +1053,94 @@ function updateCardSelCount(){
   const el = document.getElementById('cardSelCount');
   if(el) el.textContent = total ? `선택 ${sel} / ${total}개` : '';
 }
-// 카드마다 형번검색/이미지URL/링크/확인/사입가/유효기간/복제/순서이동 버튼 9개가 항상 다 펼쳐져 있으면
-// 카드가 몇 장만 있어도 화면이 정신없어 보인다는 피드백이 있어서(2026-08-09), 자주 안 쓰는 것들은
-// "고급 편집"으로 접어두고 기본으로는 체크박스/삭제/보내기만 보이게 한다. 펼침 상태는 카드ID 기준으로
-// 기억해서, 다른 카드를 편집하는 동안에도 펼쳐둔 카드는 계속 펼쳐진 채로 남아있다(새로고침하면 초기화됨 -
-// 접기 상태 자체가 중요한 데이터는 아니라서 localStorage까지 저장할 필요는 없다고 판단).
+// (2026-08-09 재설계) 카드가 몇 장만 있어도 형번검색/이미지URL/링크/사입가/유효기간/복제/순서이동 버튼이
+// 카드마다 전부 펼쳐져 있으면 화면이 정신없어진다는 피드백 + "카드가 많아지면 검색해서 찾고 싶다",
+// "편집을 하려면 내근영업까지 가야 하는게 불편하다"는 피드백을 반영해, [카드 편집]을 목록+상세편집
+// (마스터-디테일) 구조로 다시 짰다. 왼쪽은 형번/상품명으로 검색되는 컴팩트한 목록, 오른쪽은 지금
+// 선택된 카드 1개의 전체 편집 화면(기존 카드 UI 그대로, 고급 편집 접기/펼치기 포함)이다. 카드가
+// 아무리 많아져도 왼쪽 목록은 한 줄씩이라 스크롤이 짧고, 오른쪽은 항상 카드 1개만 보여서 복잡하지 않다.
 let advExpanded = new Set();
+let selectedCardId = null;   // 지금 오른쪽 상세편집에 열려있는 카드 (새로고침하면 초기화됨)
+let cardListQuery = '';      // 왼쪽 목록 검색어(형번/상품명)
+
+// 지금 선택된 카드가 삭제/보관함이동 등으로 사라졌으면 다른 카드로 자동 전환한다.
+function ensureSelectedCard(){
+  if(!cards.find(x=>x.id===selectedCardId)){
+    selectedCardId = cards.length ? cards[0].id : null;
+  }
+}
+function getFilteredCardsForList(){
+  const q = cardListQuery.trim().toLowerCase();
+  if(!q) return cards;
+  return cards.filter(c=> (c.name||'').toLowerCase().includes(q) || (c.model||'').toLowerCase().includes(q));
+}
 function renderGrid(){
-  const grid = document.getElementById('grid');
-  grid.innerHTML = '';
-  cards.forEach((c, idx)=>{
-    const wrap = document.createElement('div');
-    wrap.className = 'card-wrap' + (c.checked===false ? ' excluded' : '');
-    wrap.innerHTML = `
+  ensureSelectedCard();
+  renderCardListPane();
+  renderCardDetailPane();
+  updateCardSelCount();
+}
+
+function renderCardListPane(){
+  const wrap = document.getElementById('cardListPane');
+  if(!wrap) return;
+  if(cards.length===0){
+    wrap.innerHTML = '<div style="padding:24px 16px;text-align:center;color:#9aa0a6;font-size:12.5px;line-height:1.6;">아직 카드가 없습니다.<br>아래 "+ 카드 추가"를 눌러 시작하세요.</div>';
+    return;
+  }
+  const list = getFilteredCardsForList();
+  if(list.length===0){
+    wrap.innerHTML = '<div style="padding:24px 16px;text-align:center;color:#9aa0a6;font-size:12.5px;">검색 결과가 없습니다.</div>';
+    return;
+  }
+  wrap.innerHTML = list.map(c=>`
+    <div class="card-row${c.id===selectedCardId?' active':''}" data-id="${c.id}">
+      <input type="checkbox" class="row-chk" data-act="rowSelect" ${c.checked===false?'':'checked'} title="메일 전송/이미지복사에 포함" onclick="event.stopPropagation()">
+      <div class="row-thumb">${c.img?`<img src="${c.img}">`:''}</div>
+      <div class="row-info">
+        <div class="row-name">${escapeHtml(c.name||'상품명 없음')}${c.checked===false?' <span style="color:#b0b6c0;font-weight:400;">(제외)</span>':''}</div>
+        <div class="row-model">${c.model ? '형번 '+escapeHtml(c.model) : escapeHtml(c.category||'')}</div>
+      </div>
+    </div>
+  `).join('');
+  wrap.querySelectorAll('.card-row').forEach(row=>{
+    const id = row.dataset.id;
+    row.querySelector('[data-act="rowSelect"]').onchange = (e)=>{
+      const c = cards.find(x=>x.id===id);
+      if(!c) return;
+      c.checked = e.target.checked;
+      persistCards();
+      updateCardSelCount();
+      renderCardListPane();
+      if(id===selectedCardId) renderCardDetailPane();
+    };
+    row.addEventListener('click', ()=>{
+      selectedCardId = id;
+      renderCardListPane();
+      renderCardDetailPane();
+    });
+  });
+}
+document.getElementById('cardListSearch').oninput = (e)=>{ cardListQuery = e.target.value; renderCardListPane(); };
+document.getElementById('btnAddCardList').onclick = ()=>{
+  const nc = defaultCard();
+  cards.push(nc);
+  selectedCardId = nc.id;
+  persistCards();
+  renderGrid();
+};
+
+function renderCardDetailPane(){
+  const wrap = document.getElementById('cardDetailPane');
+  if(!wrap) return;
+  const c = cards.find(x=>x.id===selectedCardId);
+  if(!c){
+    wrap.innerHTML = '<div style="padding:80px 20px;text-align:center;color:#9aa0a6;font-size:13px;line-height:1.8;">왼쪽에서 카드를 선택하거나<br>새 카드를 추가하세요.</div>';
+    return;
+  }
+  wrap.className = 'card-wrap' + (c.checked===false ? ' excluded' : '');
+  wrap.style.cssText = 'flex:1;min-width:0;background:#fff;border:1px solid var(--gray-line);border-radius:10px;padding:20px;';
+  wrap.innerHTML = `
       <label class="card-select-row"><input type="checkbox" data-act="cardSelect" ${c.checked===false ? '' : 'checked'}> 이 카드를 이미지복사/메일 전송에 포함</label>
       <div class="p-card ${(c._강조&&c._강조.length)?'emphasis':''}" data-id="${c.id}">
         <div class="head">
@@ -1091,199 +1188,201 @@ function renderGrid(){
         </div>
       </div>
     `;
-    grid.appendChild(wrap);
 
-    const pcard = wrap.querySelector('.p-card');
+  const pcard = wrap.querySelector('.p-card');
+  const idx = ()=> cards.findIndex(x=>x.id===c.id);
 
-    // 텍스트 편집
-    pcard.querySelectorAll('[contenteditable]').forEach(el=>{
-      el.addEventListener('blur', ()=>{
-        const field = el.dataset.field;
-        let val = el.textContent.trim();
-        if(field === 'model') val = val.replace(/^형번\s*:\s*/,'');
-        if(field === 'listPrice' || field === 'salePrice'){
-          const num = Number(val.replace(/[^0-9]/g,'')) || 0;
-          c[field] = num;
-          el.textContent = fmtWon(num);
-          // 판매가를 직접 고치면 정가 기준 할인율 배지도 같이 맞춰준다(배지→판매가는 이미 되고 있었는데 반대방향이 안 되고 있었음)
-          if(field === 'salePrice'){
-            c.badge = c.listPrice > 0 ? Math.max(0, Math.min(100, Math.round((1 - num / c.listPrice) * 100))) : 0;
-          }
-          persistCards(); renderGrid(); // 배지·이익률 메모도 즉시 다시 계산되도록 재렌더링
-          return;
+  // 텍스트 편집
+  pcard.querySelectorAll('[contenteditable]').forEach(el=>{
+    el.addEventListener('blur', ()=>{
+      const field = el.dataset.field;
+      let val = el.textContent.trim();
+      if(field === 'model') val = val.replace(/^형번\s*:\s*/,'');
+      if(field === 'listPrice' || field === 'salePrice'){
+        const num = Number(val.replace(/[^0-9]/g,'')) || 0;
+        c[field] = num;
+        el.textContent = fmtWon(num);
+        // 판매가를 직접 고치면 정가 기준 할인율 배지도 같이 맞춰준다(배지→판매가는 이미 되고 있었는데 반대방향이 안 되고 있었음)
+        if(field === 'salePrice'){
+          c.badge = c.listPrice > 0 ? Math.max(0, Math.min(100, Math.round((1 - num / c.listPrice) * 100))) : 0;
         }
-        c[field] = val;
-        if(field==='model') el.textContent = '형번 : ' + val;
-        persistCards();
-      });
-    });
-
-    // 배지(할인율) 클릭
-    pcard.querySelector('[data-act="badge"]').onclick = ()=>{
-      const v = prompt('할인율(%)을 입력하세요', c.badge);
-      if(v===null) return;
-      const n = Math.max(0, Math.min(100, Number(v)||0));
-      c.badge = n;
-      c.salePrice = Math.round(c.listPrice * (1 - n/100));
-      persistCards(); renderGrid();
-    };
-
-    // 이미지 업로드
-    const imgTrigger = ()=>{
-      const inp = document.createElement('input');
-      inp.type = 'file'; inp.accept = 'image/*';
-      inp.onchange = ()=>{
-        const f = inp.files[0]; if(!f) return;
-        const reader = new FileReader();
-        reader.onload = ()=>{ c.img = reader.result; c.imgScale = 100; persistCards(); renderGrid(); };
-        reader.readAsDataURL(f);
-      };
-      inp.click();
-    };
-    // 이미지 칸을 클릭하면 파일 선택창이 바로 뜨고, 포커스된 상태에서 Ctrl+V로 캡처 이미지도 붙여넣을 수 있다
-    // (예전엔 "파일선택" 버튼이 따로 있었는데, 이미지 칸 자체를 클릭하는 것으로 합쳤다).
-    const imgboxEl = pcard.querySelector('[data-act="img"]');
-    imgboxEl.onclick = imgTrigger;
-
-    // 이미지 크기(확대/축소) 슬라이더
-    const zoomInput = wrap.querySelector('[data-act="zoom"]');
-    if(zoomInput){
-      zoomInput.oninput = ()=>{
-        c.imgScale = Number(zoomInput.value);
-        const imgEl = pcard.querySelector('.imgbox img');
-        if(imgEl) imgEl.style.transform = `scale(${c.imgScale/100})`;
-        zoomInput.nextElementSibling.textContent = c.imgScale + '%';
-      };
-      zoomInput.onchange = ()=> persistCards();
-    }
-
-    // 이미지 URL 직접 입력 (미스미 상품페이지에서 "이미지 주소 복사" 한 걸 붙여넣기)
-    wrap.querySelector('[data-act="imgurl"]').onclick = ()=>{
-      const v = prompt('상품 이미지 URL을 붙여넣으세요\n(kr.misumi-ec.com 상품페이지에서 이미지 우클릭 → "이미지 주소 복사")', c.img && c.img.startsWith('http') ? c.img : '');
-      if(v===null || v.trim()==='') return;
-      c.img = v.trim();
-      c.imgScale = 100;
-      persistCards(); renderGrid();
-    };
-
-    // 이미지 삭제 (자동 매칭된 이미지가 잘못 들어왔을 때 등, 비우고 다시 넣을 수 있게)
-    // 이미지 위 작은 × 버튼 - 이미지가 있을 때만 나타난다. 이미지 칸 자체의 클릭(파일선택)으로
-    // 이벤트가 새는 걸 막기 위해 stopPropagation 처리.
-    const imgDelBtn = wrap.querySelector('[data-act="imgDel"]');
-    if(imgDelBtn){
-      imgDelBtn.onclick = (e)=>{
-        e.stopPropagation();
-        if(!confirm('이 카드의 이미지를 삭제할까요?')) return;
-        c.img = ''; c.imgScale = 100;
-        persistCards(); renderGrid();
-      };
-    }
-
-    // 이미지 칸에 포커스한 상태에서 Ctrl+V로 캡처/복사한 이미지 붙여넣기
-    imgboxEl.addEventListener('paste', (e)=>{
-      const items = (e.clipboardData && e.clipboardData.items) || [];
-      for(const item of items){
-        if(item.type && item.type.startsWith('image/')){
-          const file = item.getAsFile();
-          if(!file) continue;
-          const reader = new FileReader();
-          reader.onload = ()=>{ c.img = reader.result; c.imgScale = 100; persistCards(); renderGrid(); toast('붙여넣은 이미지가 적용되었습니다'); };
-          reader.readAsDataURL(file);
-          e.preventDefault();
-          return;
-        }
+        persistCards(); renderCardDetailPane(); renderCardListPane(); // 배지·이익률 메모·목록 가격 모두 즉시 다시 계산
+        return;
       }
-      toast('클립보드에 이미지가 없습니다. 캡처 도구로 캡처한 뒤 다시 Ctrl+V 해보세요.');
-    });
-
-    // 사입가 (내부용, 이익률 계산에만 쓰임 - 고객 발송본에는 절대 노출 안 됨)
-    // 할인율을 조정하며 판매가·이익률이 실시간으로 바뀌는 걸 보여주는 전용 모달을 연다.
-    wrap.querySelector('[data-act="costPrice"]').onclick = ()=> openCostPriceModal(c);
-
-    // 가격 유효기간 (직접 입력한 문구 그대로 카드에 표시됨)
-    wrap.querySelector('[data-act="validUntil"]').onclick = ()=>{
-      const v = prompt('가격 유효기간 문구를 입력하세요 (예: 2026-08-31까지, 비우면 표시 안 함)', c.validUntil || '');
-      if(v===null) return;
-      c.validUntil = v.trim();
-      persistCards(); renderGrid();
-    };
-
-    // 링크
-    wrap.querySelector('[data-act="link"]').onclick = ()=>{
-      const v = prompt('카드 클릭 시 이동할 상품 링크(URL)를 입력하세요', c.link || 'https://kr.misumi-ec.com/');
-      if(v===null) return;
-      c.link = v.trim();
-      persistCards(); renderGrid();
-    };
-
-    // 링크 확인: 정확한 상품으로 연결되는지 새 탭에서 열어서 직접 확인
-    wrap.querySelector('[data-act="linkOpen"]').onclick = ()=>{
-      if(!c.link){ toast('아직 링크가 없습니다. 먼저 "링크" 또는 "형번 검색"으로 채워주세요.'); return; }
-      window.open(c.link, '_blank', 'noopener');
-    };
-
-    // 형번 검색 (형번 앞부분만 입력해도 후보가 뜨고, 고르면 형번 + 상품 링크가 자동으로 채워짐)
-    wrap.querySelector('[data-act="modelSearch"]').onclick = ()=> openModelSearchModal(c);
-
-    // 순서 이동
-    wrap.querySelector('[data-act="left"]').onclick = ()=>{
-      if(idx===0) return;
-      [cards[idx-1], cards[idx]] = [cards[idx], cards[idx-1]];
-      persistCards(); renderGrid();
-    };
-    wrap.querySelector('[data-act="right"]').onclick = ()=>{
-      if(idx===cards.length-1) return;
-      [cards[idx+1], cards[idx]] = [cards[idx], cards[idx+1]];
-      persistCards(); renderGrid();
-    };
-
-    // 삭제
-    wrap.querySelector('[data-act="delete"]').onclick = ()=>{
-      if(!confirm('이 카드를 삭제할까요?')) return;
-      cards.splice(idx,1); persistCards(); renderGrid();
-    };
-
-    // 복제 - 같은 상품을 다른 고객사에도 보내거나, 비슷한 카드를 여러 개 만들 때
-    wrap.querySelector('[data-act="dup"]').onclick = ()=>{
-      const copy = JSON.parse(JSON.stringify(c));
-      copy.id = uid();
-      cards.splice(idx+1, 0, copy);
-      persistCards(); renderGrid();
-      toast('카드가 복제되었습니다.');
-    };
-
-    // (2026-08-06) "보관함 저장" 버튼은 없앴다 - 대신 카드를 보내면(이 카드로 보내기/Outlook 메일 준비/
-    // 이미지로 복사) 발송이력에 카드 내용까지 통째로 자동 기록되고, 발송이력에서 "편집으로 불러오기"로
-    // 다시 꺼내 쓸 수 있다(saveCardToArchive는 여전히 다른 곳-외근영업 라이브러리 등-에서 쓰이므로 남겨둠).
-
-    // 고급 편집(형번검색/이미지URL/링크/사입가/유효기간/복제/순서이동) 펼치기·접기
-    wrap.querySelector('[data-act="toggleAdv"]').onclick = ()=>{
-      if(advExpanded.has(c.id)) advExpanded.delete(c.id); else advExpanded.add(c.id);
-      renderGrid();
-    };
-
-    // 이 카드만 골라 고객 선택 → 방문전/후 선택 → Outlook까지 한번에 진행
-    wrap.querySelector('[data-act="sendFlow"]').onclick = ()=> openSendFlowModal(c);
-
-    // 이 카드를 이미지복사/메일 전송 대상에 포함할지 여부
-    wrap.querySelector('[data-act="cardSelect"]').onchange = (e)=>{
-      c.checked = e.target.checked;
-      wrap.classList.toggle('excluded', !e.target.checked);
+      c[field] = val;
+      if(field==='model') el.textContent = '형번 : ' + val;
       persistCards();
-      updateCardSelCount();
-    };
+      if(field==='name' || field==='model') renderCardListPane();
+    });
   });
 
-  // + 카드 추가 타일
-  const addTile = document.createElement('div');
-  addTile.className = 'add-tile';
-  addTile.innerHTML = '<div style="font-size:26px;">+</div><div>카드 추가</div>';
-  addTile.onclick = ()=>{ cards.push(defaultCard()); persistCards(); renderGrid(); };
-  grid.appendChild(addTile);
+  // 배지(할인율) 클릭
+  pcard.querySelector('[data-act="badge"]').onclick = ()=>{
+    const v = prompt('할인율(%)을 입력하세요', c.badge);
+    if(v===null) return;
+    const n = Math.max(0, Math.min(100, Number(v)||0));
+    c.badge = n;
+    c.salePrice = Math.round(c.listPrice * (1 - n/100));
+    persistCards(); renderCardDetailPane();
+  };
 
-  updateCardSelCount();
+  // 이미지 업로드
+  const imgTrigger = ()=>{
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*';
+    inp.onchange = ()=>{
+      const f = inp.files[0]; if(!f) return;
+      const reader = new FileReader();
+      reader.onload = ()=>{ c.img = reader.result; c.imgScale = 100; persistCards(); renderCardDetailPane(); renderCardListPane(); };
+      reader.readAsDataURL(f);
+    };
+    inp.click();
+  };
+  // 이미지 칸을 클릭하면 파일 선택창이 바로 뜨고, 포커스된 상태에서 Ctrl+V로 캡처 이미지도 붙여넣을 수 있다
+  // (예전엔 "파일선택" 버튼이 따로 있었는데, 이미지 칸 자체를 클릭하는 것으로 합쳤다).
+  const imgboxEl = pcard.querySelector('[data-act="img"]');
+  imgboxEl.onclick = imgTrigger;
+
+  // 이미지 크기(확대/축소) 슬라이더
+  const zoomInput = wrap.querySelector('[data-act="zoom"]');
+  if(zoomInput){
+    zoomInput.oninput = ()=>{
+      c.imgScale = Number(zoomInput.value);
+      const imgEl = pcard.querySelector('.imgbox img');
+      if(imgEl) imgEl.style.transform = `scale(${c.imgScale/100})`;
+      zoomInput.nextElementSibling.textContent = c.imgScale + '%';
+    };
+    zoomInput.onchange = ()=> persistCards();
+  }
+
+  // 이미지 URL 직접 입력 (미스미 상품페이지에서 "이미지 주소 복사" 한 걸 붙여넣기)
+  wrap.querySelector('[data-act="imgurl"]').onclick = ()=>{
+    const v = prompt('상품 이미지 URL을 붙여넣으세요\n(kr.misumi-ec.com 상품페이지에서 이미지 우클릭 → "이미지 주소 복사")', c.img && c.img.startsWith('http') ? c.img : '');
+    if(v===null || v.trim()==='') return;
+    c.img = v.trim();
+    c.imgScale = 100;
+    persistCards(); renderCardDetailPane(); renderCardListPane();
+  };
+
+  // 이미지 삭제 (자동 매칭된 이미지가 잘못 들어왔을 때 등, 비우고 다시 넣을 수 있게)
+  // 이미지 위 작은 × 버튼 - 이미지가 있을 때만 나타난다. 이미지 칸 자체의 클릭(파일선택)으로
+  // 이벤트가 새는 걸 막기 위해 stopPropagation 처리.
+  const imgDelBtn = wrap.querySelector('[data-act="imgDel"]');
+  if(imgDelBtn){
+    imgDelBtn.onclick = (e)=>{
+      e.stopPropagation();
+      if(!confirm('이 카드의 이미지를 삭제할까요?')) return;
+      c.img = ''; c.imgScale = 100;
+      persistCards(); renderCardDetailPane(); renderCardListPane();
+    };
+  }
+
+  // 이미지 칸에 포커스한 상태에서 Ctrl+V로 캡처/복사한 이미지 붙여넣기
+  imgboxEl.addEventListener('paste', (e)=>{
+    const items = (e.clipboardData && e.clipboardData.items) || [];
+    for(const item of items){
+      if(item.type && item.type.startsWith('image/')){
+        const file = item.getAsFile();
+        if(!file) continue;
+        const reader = new FileReader();
+        reader.onload = ()=>{ c.img = reader.result; c.imgScale = 100; persistCards(); renderCardDetailPane(); renderCardListPane(); toast('붙여넣은 이미지가 적용되었습니다'); };
+        reader.readAsDataURL(file);
+        e.preventDefault();
+        return;
+      }
+    }
+    toast('클립보드에 이미지가 없습니다. 캡처 도구로 캡처한 뒤 다시 Ctrl+V 해보세요.');
+  });
+
+  // 사입가 (내부용, 이익률 계산에만 쓰임 - 고객 발송본에는 절대 노출 안 됨)
+  // 할인율을 조정하며 판매가·이익률이 실시간으로 바뀌는 걸 보여주는 전용 모달을 연다.
+  wrap.querySelector('[data-act="costPrice"]').onclick = ()=> openCostPriceModal(c);
+
+  // 가격 유효기간 (직접 입력한 문구 그대로 카드에 표시됨)
+  wrap.querySelector('[data-act="validUntil"]').onclick = ()=>{
+    const v = prompt('가격 유효기간 문구를 입력하세요 (예: 2026-08-31까지, 비우면 표시 안 함)', c.validUntil || '');
+    if(v===null) return;
+    c.validUntil = v.trim();
+    persistCards(); renderCardDetailPane();
+  };
+
+  // 링크
+  wrap.querySelector('[data-act="link"]').onclick = ()=>{
+    const v = prompt('카드 클릭 시 이동할 상품 링크(URL)를 입력하세요', c.link || 'https://kr.misumi-ec.com/');
+    if(v===null) return;
+    c.link = v.trim();
+    persistCards(); renderCardDetailPane();
+  };
+
+  // 링크 확인: 정확한 상품으로 연결되는지 새 탭에서 열어서 직접 확인
+  wrap.querySelector('[data-act="linkOpen"]').onclick = ()=>{
+    if(!c.link){ toast('아직 링크가 없습니다. 먼저 "링크" 또는 "형번 검색"으로 채워주세요.'); return; }
+    window.open(c.link, '_blank', 'noopener');
+  };
+
+  // 형번 검색 (형번 앞부분만 입력해도 후보가 뜨고, 고르면 형번 + 상품 링크가 자동으로 채워짐)
+  wrap.querySelector('[data-act="modelSearch"]').onclick = ()=> openModelSearchModal(c);
+
+  // 순서 이동 (왼쪽 목록의 표시 순서도 cards 배열 순서를 그대로 따른다)
+  wrap.querySelector('[data-act="left"]').onclick = ()=>{
+    const i = idx();
+    if(i<=0) return;
+    [cards[i-1], cards[i]] = [cards[i], cards[i-1]];
+    persistCards(); renderCardListPane();
+  };
+  wrap.querySelector('[data-act="right"]').onclick = ()=>{
+    const i = idx();
+    if(i<0 || i===cards.length-1) return;
+    [cards[i+1], cards[i]] = [cards[i], cards[i+1]];
+    persistCards(); renderCardListPane();
+  };
+
+  // 삭제 - 지운 다음엔 바로 옆에 있던 카드로 자동 전환해서, 화면이 빈 채로 남지 않게 한다.
+  wrap.querySelector('[data-act="delete"]').onclick = ()=>{
+    if(!confirm('이 카드를 삭제할까요?')) return;
+    const i = idx();
+    cards.splice(i,1);
+    selectedCardId = (cards[i] || cards[i-1] || null) && (cards[i] ? cards[i].id : (cards[i-1] ? cards[i-1].id : null));
+    persistCards(); renderGrid();
+  };
+
+  // 복제 - 같은 상품을 다른 고객사에도 보내거나, 비슷한 카드를 여러 개 만들 때. 복제된 카드를 바로 보여준다.
+  wrap.querySelector('[data-act="dup"]').onclick = ()=>{
+    const copy = JSON.parse(JSON.stringify(c));
+    copy.id = uid();
+    cards.splice(idx()+1, 0, copy);
+    selectedCardId = copy.id;
+    persistCards(); renderGrid();
+    toast('카드가 복제되었습니다.');
+  };
+
+  // (2026-08-06) "보관함 저장" 버튼은 없앴다 - 대신 카드를 보내면(이 카드로 보내기/Outlook 메일 준비/
+  // 이미지로 복사) 발송이력에 카드 내용까지 통째로 자동 기록되고, 발송이력에서 "편집으로 불러오기"로
+  // 다시 꺼내 쓸 수 있다(saveCardToArchive는 여전히 다른 곳-외근영업 라이브러리 등-에서 쓰이므로 남겨둠).
+
+  // 고급 편집(형번검색/이미지URL/링크/사입가/유효기간/복제/순서이동) 펼치기·접기
+  wrap.querySelector('[data-act="toggleAdv"]').onclick = ()=>{
+    if(advExpanded.has(c.id)) advExpanded.delete(c.id); else advExpanded.add(c.id);
+    renderCardDetailPane();
+  };
+
+  // 이 카드만 골라 고객 선택 → 방문전/후 선택 → Outlook까지 한번에 진행
+  wrap.querySelector('[data-act="sendFlow"]').onclick = ()=> openSendFlowModal(c);
+
+  // 이 카드를 이미지복사/메일 전송 대상에 포함할지 여부 (왼쪽 목록 체크박스와 같은 값을 공유)
+  wrap.querySelector('[data-act="cardSelect"]').onchange = (e)=>{
+    c.checked = e.target.checked;
+    persistCards();
+    updateCardSelCount();
+    renderCardListPane();
+  };
 }
-document.getElementById('btnAddCard').onclick = ()=>{ cards.push(defaultCard()); persistCards(); renderGrid(); };
+document.getElementById('btnAddCard').onclick = ()=>{
+  const nc = defaultCard();
+  cards.push(nc);
+  selectedCardId = nc.id;
+  persistCards(); renderGrid();
+};
 document.getElementById('btnSelectAllCards').onclick = ()=>{
   cards.forEach(c=> c.checked = true);
   persistCards(); renderGrid();
@@ -2078,8 +2177,9 @@ function renderLibGrid(){
       updateLibSelCount();
     };
     el.querySelector('[data-act="addOne"]').onclick = ()=>{
-      cards.push(Object.assign({}, a.config, { id: uid() })); persistCards();
-      toast(`"${a.config.name}" 카드를 [카드 편집]에 담았습니다.`);
+      const nc = Object.assign({}, a.config, { id: uid() });
+      cards.push(nc); selectedCardId = nc.id; persistCards();
+      toast(`"${a.config.name}" 카드를 [카드 편집]에 담았습니다. 왼쪽 메뉴의 "카드 편집"에서 바로 이어서 작업할 수 있습니다.`);
     };
   });
 }
@@ -2172,6 +2272,47 @@ document.getElementById('btnLoadPreparedCards').onclick = loadPreparedCards;
 /* 경제형 대표상품 라인업(외근영업 탭 최상단 고정 22개) - data/pinned_products.json에서 읽어와
    검색/필터와 무관하게 항상 이 자리에 고정 순서대로 보여준다. 기존 "보관함(archive)" 로직과는
    완전히 분리되어 있어서(별도 배열·별도 그리드), 이 기능이 실패해도 기존 라이브러리 동작에는 영향이 없다. */
+// (2026-08-09) 카드가 많아지니 형번/상품명으로 한번에 찾고 싶다는 요청 반영 - 맨 위 "전체 검색" 한 칸에
+// 입력하면 대표상품(pinnedGrid)·전체 라인업(allCatSections)·라이브러리(libGrid)·엑셀 카탈로그(fieldGrid)가
+// 동시에 좁혀진다. 각 섹션은 원래 자기 검색창(libSearch/fieldSearch)도 그대로 갖고 있어서, 전체 검색과
+// 별개로 그 섹션만 다시 검색하고 싶을 때도 문제없이 쓸 수 있다.
+let globalProductQuery = '';
+let pinnedProductsList = [];   // data/pinned_products.json 원본 (검색과 무관하게 항상 보관)
+function renderPinnedGrid(){
+  const wrap = document.getElementById('pinnedGrid');
+  if(!wrap) return;
+  const q = globalProductQuery.trim().toLowerCase();
+  const list = !q ? pinnedProductsList : pinnedProductsList.filter(c=>
+    (c.name||'').toLowerCase().includes(q) || (c.model||'').toLowerCase().includes(q) || (c.category||'').toLowerCase().includes(q)
+  );
+  if(pinnedProductsList.length===0){ wrap.innerHTML=''; return; }
+  if(list.length===0){ wrap.innerHTML = '<div style="color:#9aa0a6;font-size:12.5px;padding:8px 2px;">검색 결과가 없습니다.</div>'; return; }
+  wrap.innerHTML = list.map(c=>`
+    <div class="arch-item" data-pinid="${c.id}">
+      ${archThumb(c, 'thumb')}
+      <div class="meta">
+        <div class="n">${escapeHtml(c.name||'')}</div>
+        <div class="d">형번 ${escapeHtml(c.model||'-')}</div>
+        <div class="d">${escapeHtml(c.category||'')}</div>
+      </div>
+      <div class="btns">
+        <button data-act="sendOne" style="box-shadow:0 0 0 2px var(--navy) inset;">이 카드로 보내기</button>
+        <button data-act="addOne">편집에 담기</button>
+      </div>
+    </div>
+  `).join('');
+  wrap.querySelectorAll('.arch-item').forEach(el=>{
+    const id = el.dataset.pinid;
+    const c = list.find(x=>x.id===id);
+    if(!c) return;
+    el.querySelector('[data-act="sendOne"]').onclick = ()=> openSendFlowModal(Object.assign({}, c));
+    el.querySelector('[data-act="addOne"]').onclick = ()=>{
+      const nc = Object.assign({}, c, { id: uid() });
+      cards.push(nc); selectedCardId = nc.id; persistCards();
+      toast(`"${c.name}" 카드를 [카드 편집]에 담았습니다. 왼쪽 메뉴의 "카드 편집"에서 바로 이어서 작업할 수 있습니다.`);
+    };
+  });
+}
 async function loadPinnedProducts(){
   const wrap = document.getElementById('pinnedGrid');
   if(!wrap) return;
@@ -2186,30 +2327,8 @@ async function loadPinnedProducts(){
         try{ const url = await resolveSeriesImage(c._시리즈코드); if(url) c.img = url; }catch(e){}
       }
     }));
-    wrap.innerHTML = list.map(c=>`
-      <div class="arch-item" data-pinid="${c.id}">
-        ${archThumb(c, 'thumb')}
-        <div class="meta">
-          <div class="n">${escapeHtml(c.name||'')}</div>
-          <div class="d">형번 ${escapeHtml(c.model||'-')}</div>
-          <div class="d">${escapeHtml(c.category||'')}</div>
-        </div>
-        <div class="btns">
-          <button data-act="sendOne" style="box-shadow:0 0 0 2px var(--navy) inset;">이 카드로 보내기</button>
-          <button data-act="addOne">편집에 담기</button>
-        </div>
-      </div>
-    `).join('');
-    wrap.querySelectorAll('.arch-item').forEach(el=>{
-      const id = el.dataset.pinid;
-      const c = list.find(x=>x.id===id);
-      if(!c) return;
-      el.querySelector('[data-act="sendOne"]').onclick = ()=> openSendFlowModal(Object.assign({}, c));
-      el.querySelector('[data-act="addOne"]').onclick = ()=>{
-        cards.push(Object.assign({}, c, { id: uid() })); persistCards();
-        toast(`"${c.name}" 카드를 [카드 편집]에 담았습니다.`);
-      };
-    });
+    pinnedProductsList = list;
+    renderPinnedGrid();
   }catch(e){ console.warn('경제형 라인업 로드 실패:', e); }
 }
 loadPinnedProducts();
@@ -2244,36 +2363,38 @@ function getSelectedAllCatCards(){
   });
   return targets;
 }
-async function loadAllCategories(){
+let allCatFlatList = [];   // data/economy_all_categories.json 원본 전체 (검색과 무관하게 항상 보관)
+function renderAllCatSections(){
   const wrap = document.getElementById('allCatSections');
   if(!wrap) return;
-  try{
-    const res = await fetch('data/economy_all_categories.json');
-    if(!res.ok) return;
-    const list = await res.json();
-    if(!Array.isArray(list) || list.length===0) return;
-    const byCat = {};
-    list.forEach((it, i)=>{
-      it._key = 'ac_' + i;
-      allCatByKey[it._key] = it;
-      if(!byCat[it.category]) byCat[it.category] = [];
-      byCat[it.category].push(it);
-    });
-    wrap.innerHTML = Object.keys(byCat).map((cat, idx)=>{
-      const items = byCat[cat];
-      return `
-      <details class="allcat-section" ${idx<2 ? 'open' : ''} style="margin-bottom:10px;border:1px solid var(--gray-line);border-radius:8px;">
-        <summary style="cursor:pointer;padding:10px 14px;font-weight:600;font-size:13.5px;background:#f7f8fa;border-radius:8px;">
-          ${escapeHtml(cat)} <span style="color:var(--text-sub);font-weight:400;">(${items.length}개)</span>
-        </summary>
-        <div class="arch-grid" style="padding:12px;" data-cat="${escapeHtml(cat)}"></div>
-      </details>`;
-    }).join('');
-    Object.keys(byCat).forEach(cat=>{
-      const items = byCat[cat];
-      const grid = wrap.querySelector(`.arch-grid[data-cat="${cssEscape(cat)}"]`);
-      if(!grid) return;
-      grid.innerHTML = items.map(it=>{
+  if(allCatFlatList.length===0){ wrap.innerHTML=''; return; }
+  const q = globalProductQuery.trim().toLowerCase();
+  const list = !q ? allCatFlatList : allCatFlatList.filter(it=>
+    (it.name||'').toLowerCase().includes(q) || (it.category||'').toLowerCase().includes(q) || (it.code||'').toLowerCase().includes(q)
+  );
+  if(list.length===0){ wrap.innerHTML = '<div style="color:#9aa0a6;font-size:12.5px;padding:8px 2px;">검색 결과가 없습니다.</div>'; return; }
+  const byCat = {};
+  list.forEach(it=>{
+    if(!byCat[it.category]) byCat[it.category] = [];
+    byCat[it.category].push(it);
+  });
+  wrap.innerHTML = Object.keys(byCat).map((cat, idx)=>{
+    const items = byCat[cat];
+    // 검색 중일 때는 결과가 나온 카테고리를 전부 펼쳐서 보여주고, 평소(검색어 없음)에는 처음 2개만 펼친다.
+    const openIt = q ? true : idx<2;
+    return `
+    <details class="allcat-section" ${openIt ? 'open' : ''} style="margin-bottom:10px;border:1px solid var(--gray-line);border-radius:8px;">
+      <summary style="cursor:pointer;padding:10px 14px;font-weight:600;font-size:13.5px;background:#f7f8fa;border-radius:8px;">
+        ${escapeHtml(cat)} <span style="color:var(--text-sub);font-weight:400;">(${items.length}개)</span>
+      </summary>
+      <div class="arch-grid" style="padding:12px;" data-cat="${escapeHtml(cat)}"></div>
+    </details>`;
+  }).join('');
+  Object.keys(byCat).forEach(cat=>{
+    const items = byCat[cat];
+    const grid = wrap.querySelector(`.arch-grid[data-cat="${cssEscape(cat)}"]`);
+    if(!grid) return;
+    grid.innerHTML = items.map(it=>{
         const directImg = `https://kr.misumi-ec.com/pr/vona/economy/images/index/${it.code}.jpg`;
         const link = `https://kr.misumi-ec.com/vona2/${it.path}`;
         return `
@@ -2306,13 +2427,26 @@ async function loadAllCategories(){
           openSendFlowModal(allCatCardObj(it, el.querySelector('img.thumb')));
         };
         el.querySelector('[data-act="addOne"]').onclick = ()=>{
-          cards.push(allCatCardObj(it, el.querySelector('img.thumb')));
+          const nc = allCatCardObj(it, el.querySelector('img.thumb'));
+          cards.push(nc); selectedCardId = nc.id;
           persistCards();
-          toast(`"${it.name}" 카드를 [카드 편집]에 담았습니다.`);
+          toast(`"${it.name}" 카드를 [카드 편집]에 담았습니다. 왼쪽 메뉴의 "카드 편집"에서 바로 이어서 작업할 수 있습니다.`);
         };
       });
     });
-    updateAllCatSelCount();
+  updateAllCatSelCount();
+}
+async function loadAllCategories(){
+  const wrap = document.getElementById('allCatSections');
+  if(!wrap) return;
+  try{
+    const res = await fetch('data/economy_all_categories.json');
+    if(!res.ok) return;
+    const list = await res.json();
+    if(!Array.isArray(list) || list.length===0) return;
+    list.forEach((it, i)=>{ it._key = 'ac_' + i; allCatByKey[it._key] = it; });
+    allCatFlatList = list;
+    renderAllCatSections();
   }catch(e){ console.warn('경제형 전체 라인업 로드 실패:', e); }
 }
 function cssEscape(s){ return String(s).replace(/["\\]/g, '\\$&'); }
@@ -2338,17 +2472,20 @@ document.getElementById('btnAllCatAddSelected').onclick = ()=>{
   const targets = getSelectedAllCatCards();
   if(targets.length===0){ toast('편집에 담을 카드를 먼저 선택하세요.'); return; }
   targets.forEach(c=> cards.push(c));
+  selectedCardId = targets[targets.length-1].id;
   persistCards();
-  toast(`${targets.length}개 카드를 [카드 편집]에 담았습니다.`);
+  toast(`${targets.length}개 카드를 [카드 편집]에 담았습니다. 왼쪽 메뉴의 "카드 편집"에서 확인하세요.`);
 };
 
 document.getElementById('libSearch').oninput = renderLibGrid;
 document.getElementById('btnLibAddSelected').onclick = ()=>{
   const targets = archive.filter(a=>libSelected.has(a.id));
   if(targets.length===0){ toast('담을 카드를 먼저 선택하세요.'); return; }
-  targets.forEach(a=> cards.push(Object.assign({}, a.config, { id: uid() })));
+  let lastId = null;
+  targets.forEach(a=>{ const nc = Object.assign({}, a.config, { id: uid() }); cards.push(nc); lastId = nc.id; });
+  if(lastId) selectedCardId = lastId;
   persistCards();
-  toast(`${targets.length}개 카드를 [카드 편집]에 담았습니다.`);
+  toast(`${targets.length}개 카드를 [카드 편집]에 담았습니다. 왼쪽 메뉴의 "카드 편집"에서 확인하세요.`);
 };
 document.getElementById('btnLibSendSelected').onclick = ()=>{
   const targets = archive.filter(a=>libSelected.has(a.id));
@@ -2417,6 +2554,19 @@ function renderFieldGrid(){
   });
 }
 document.getElementById('fieldSearch').oninput = renderFieldGrid;
+
+// "카드 목록" 맨 위 전체 검색창 - 형번/상품명 하나만 입력하면 대표상품·전체 라인업·라이브러리·엑셀 카탈로그가
+// 동시에 같은 검색어로 좁혀진다. 각 섹션의 원래 검색창(libSearch/fieldSearch)에도 값을 그대로 반영해서,
+// 나중에 그 칸만 지우거나 다시 검색해도 자연스럽게 이어지게 한다.
+document.getElementById('globalProductSearch').oninput = (e)=>{
+  globalProductQuery = e.target.value;
+  renderPinnedGrid();
+  renderAllCatSections();
+  const libInput = document.getElementById('libSearch');
+  if(libInput){ libInput.value = globalProductQuery; renderLibGrid(); }
+  const fieldInput = document.getElementById('fieldSearch');
+  if(fieldInput){ fieldInput.value = globalProductQuery; renderFieldGrid(); }
+};
 
 /* ===================== 외근영업 탭: 상품 사진 갤러리 (형번 없이 사진으로 둘러보기) =====================
    준비된 이미지 3,553장은 시리즈코드 파일명(예: 110100140620.jpg)이다. 그중 형번DB와 겹치는 시리즈코드(675개)는
