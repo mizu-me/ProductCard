@@ -64,7 +64,7 @@
   .p-card{ width:220px; border:1px solid var(--gray-line); border-radius:6px; overflow:hidden; background:#fff; }
   .p-card.emphasis{ border:3px solid #1a56db; box-shadow:0 0 0 1px #1a56db; }
   .emphasis-tag{ display:inline-block; background:#dbe6fb; color:#1a56db; font-size:11px; font-weight:800; padding:2px 9px; border-radius:11px; margin-left:6px; }
-  .arch-item.emphasis{ box-shadow:0 0 0 2px #1a56db inset; border-radius:8px; }
+  .arch-item.emphasis{ border-color:#1a56db; box-shadow:0 0 0 1px #1a56db inset; border-radius:8px; }
   .p-card .head{ background:var(--navy); padding:9px 12px; color:#fff; font-weight:800; font-size:13px; letter-spacing:1px; display:flex; justify-content:space-between; align-items:center; }
   .p-card .head .b{ padding:6px 14px; border-radius:4px; background:#f6c445; color:#1a2233; font-weight:800; font-size:13px; white-space:nowrap; cursor:pointer; }
   .p-card .imgbox{ width:100%; height:165px; background:#ffffff; border-bottom:1px solid var(--gray-line); display:flex; align-items:center; justify-content:center; color:#9aa0a6; font-size:12px; cursor:pointer; overflow:hidden; position:relative; }
@@ -139,18 +139,18 @@
   .sendlog-cal-head span{ font-size:14px; font-weight:700; }
   .sendlog-cal-dow{ display:grid; grid-template-columns:repeat(7,1fr); font-size:11px; color:var(--text-sub); text-align:center; margin-bottom:4px; }
   .sendlog-cal-cells{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
-  .sendlog-cal-cell{ height:56px; border-radius:8px; background:var(--gray-bg); padding:5px; cursor:pointer; position:relative; }
+  .sendlog-cal-cell{ min-height:66px; border-radius:8px; background:var(--gray-bg); padding:5px; cursor:pointer; position:relative; display:flex; flex-direction:column; box-sizing:border-box; }
   .sendlog-cal-cell.empty{ background:transparent; cursor:default; }
   .sendlog-cal-cell .daynum{ font-size:11.5px; }
   .sendlog-cal-cell.today{ box-shadow:0 0 0 1.5px var(--navy) inset; }
   .sendlog-cal-cell.today .daynum{ color:var(--navy); font-weight:700; }
-  .sendlog-cal-cell.selected{ background:#eef3fb; }
-  .sendlog-cal-cell .dots{ position:absolute; bottom:6px; left:6px; display:flex; gap:3px; }
-  .sendlog-cal-cell .dot{ width:6px; height:6px; border-radius:50%; display:inline-block; }
-  .dot-green{ background:#3b6d11; }
-  .dot-blue{ background:#185fa5; }
-  .sendlog-cal-legend{ display:flex; gap:16px; margin-top:12px; font-size:11px; color:var(--text-sub); }
-  .sendlog-cal-legend .dot{ margin-right:4px; }
+  .sendlog-cal-cell.selected{ background:#eef3fb; border:1px solid var(--navy); }
+  .sendlog-cal-counts{ margin-top:auto; display:flex; flex-direction:column; gap:2px; }
+  .cal-count{ font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:4px; line-height:1.5; white-space:nowrap; }
+  .cal-count-green{ background:#c0dd97; color:#173404; }
+  .cal-count-blue{ background:#85b7eb; color:#042c53; }
+  .sendlog-cal-legend{ display:flex; gap:12px; margin-top:12px; font-size:11px; color:var(--text-sub); align-items:center; }
+  .sendlog-cal-legend .cal-count{ margin-right:2px; }
   .sendlog-daybox{ background:#fff; border:1px solid var(--gray-line); border-radius:10px; padding:14px 16px; margin-top:14px; }
   .sendlog-daybox-title{ font-size:12px; color:var(--text-sub); margin-bottom:8px; }
   .sendlog-daybox-row{ display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-top:1px solid var(--gray-line); }
@@ -177,9 +177,10 @@
 
   /* 보관함 - 카드형(보조) */
   .arch-grid{ display:flex; gap:14px; flex-wrap:wrap; }
-  .arch-item{ width:220px; border:1px solid var(--gray-line); border-radius:8px; background:#fff; overflow:hidden; position:relative; }
-  .arch-item.selected{ box-shadow:0 0 0 2px var(--navy) inset; }
-  .arch-item .thumb{ width:100%; height:175px; object-fit:contain; background:#fff; display:block; }
+  .arch-item{ width:220px; border:1px solid var(--gray-line); border-radius:8px; background:#fff; overflow:hidden; position:relative; box-sizing:border-box; }
+  .arch-item.selected{ border-color:var(--navy); box-shadow:0 0 0 1px var(--navy) inset; }
+  .arch-item .thumb{ width:100%; height:175px; max-width:100%; max-height:175px; object-fit:contain; object-position:center; background:#fff; display:block; box-sizing:border-box; }
+  .arch-item .thumb-empty{ width:100%; height:175px; display:flex; align-items:center; justify-content:center; color:#9aa0a6; font-size:12px; background:#f2f4f7; text-align:center; line-height:1.4; }
   .arch-item .sel-check{ position:absolute; top:8px; left:8px; width:20px; height:20px; z-index:2; cursor:pointer; }
   .arch-item .add-check{ position:absolute; top:8px; right:8px; width:24px; height:24px; z-index:2; cursor:pointer; border-radius:6px; border:1.5px solid var(--gray-line); background:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:900; color:#fff; box-shadow:0 1px 3px rgba(0,0,0,.15); }
   .arch-item .add-check.on{ background:var(--navy); border-color:var(--navy); }
@@ -294,7 +295,6 @@
 
 <div class="panel" id="fieldPanel">
   <div class="hint" style="background:#eef3fb;border-left:3px solid var(--navy);">
-    <span style="background:var(--navy);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:6px;">매출 TOP 22</span>
     <b>경제형 대표상품 라인업</b> - 형번·가격까지 확인된 22개 핵심 상품입니다. 수정 없이 바로 보내도 되는 완성 카드예요.
   </div>
   <div class="arch-grid" id="pinnedGrid" style="margin-bottom:24px;"></div>
@@ -493,8 +493,8 @@
       </div>
       <div id="sendLogCalGrid"></div>
       <div class="sendlog-cal-legend">
-        <span><span class="dot dot-green"></span>발송 완료</span>
-        <span><span class="dot dot-blue"></span>방문 예정</span>
+        <span><span class="cal-count cal-count-green">발송 3</span> 발송 완료 건수</span>
+        <span><span class="cal-count cal-count-blue">방문 2</span> 방문 예정 건수</span>
       </div>
     </div>
     <div id="sendLogDayDetail"></div>
@@ -1121,6 +1121,8 @@ const FIELD_SUBNAV = [
   { key:'sendlog', label:'발송이력',        panels:['sendLogPanel'] },
   { key:'arch',    label:'카드 보관함',     panels:['archPanel'] },
   { key:'bizmail', label:'업무용 메일카드', panels:['bizMailPanel'] },
+  { sep:true },
+  { key:'cust',  label:'고객사별',      panels:['custPanel'], minor:true },
 ];
 const INDOOR_SUBNAV = [
   { key:'home',     label:'캠페인 목록',    panels:['indoorPanel'] },
@@ -1836,6 +1838,7 @@ function renderArchListView(visible){
           <button class="rowbtn" data-act="load">불러오기</button>
           <button class="rowbtn" data-act="copy">복사</button>
           <button class="rowbtn danger" data-act="del">삭제</button>
+          <a class="rowbtn" href="${productPageUrl(a.config)}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block;">상품페이지 열기 ↗</a>
         </td>
       </tr>`).join('')}
     </tbody></table>`;
@@ -1857,10 +1860,11 @@ function renderArchGridView(visible){
         ${a.customer ? `<div class="d">고객사: ${a.customer}</div>` : ''}
         <div class="d">${a.savedBy ? a.savedBy + ' · ' : ''}${new Date(a.savedAt).toLocaleString('ko-KR')}</div>
       </div>
-      <div class="btns">
+      <div class="btns" style="flex-wrap:wrap;">
         <button data-act="load">편집에 불러오기</button>
         <button data-act="copy">카드 복사</button>
         <button data-act="del">삭제</button>
+        ${productPageBtnHtml(a.config)}
       </div>
     </div>
   `).join('');
@@ -1931,10 +1935,10 @@ function renderSendLogCalendar(){
   for(let d=1; d<=daysInMonth; d++){
     const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const info = dayMap[dateStr];
-    const dots = info ? `${info.sent.length ? '<span class="dot dot-green"></span>' : ''}${info.visit.length ? '<span class="dot dot-blue"></span>' : ''}` : '';
+    const counts = info ? `${info.sent.length ? `<span class="cal-count cal-count-green">발송 ${info.sent.length}</span>` : ''}${info.visit.length ? `<span class="cal-count cal-count-blue">방문 ${info.visit.length}</span>` : ''}` : '';
     cellsHtml += `<div class="sendlog-cal-cell${dateStr===todayStr?' today':''}${dateStr===sendLogSelectedDay?' selected':''}" data-date="${dateStr}">
       <span class="daynum">${d}</span>
-      <span class="dots">${dots}</span>
+      <div class="sendlog-cal-counts">${counts}</div>
     </div>`;
   }
   grid.innerHTML = `<div class="sendlog-cal-dow">${['일','월','화','수','목','금','토'].map(w=>`<div>${w}</div>`).join('')}</div><div class="sendlog-cal-cells">${cellsHtml}</div>`;
@@ -2002,8 +2006,9 @@ function renderSendLogCustomerSummary(){
   }).join('');
   wrap.querySelectorAll('.sendlog-cust-card').forEach(el=>{
     el.onclick = ()=>{
+      // 외근영업에서 눌렀으면 외근영업 안에서, 내근영업에서 눌렀으면 내근영업 안에서 고객 상세를 보여준다.
+      // (예전엔 항상 내근영업으로 튀어서 "외근영업 작업 중에 갑자기 화면이 바뀐다"는 문제가 있었다.)
       selectedCustomer = el.dataset.name;
-      showTop('indoor');
       showSub('cust');
       renderCustList();
       renderCustDetail(selectedCustomer);
@@ -2524,6 +2529,7 @@ function renderLibGrid(){
       </div>
       <div class="btns">
         <button data-act="sendOne" style="box-shadow:0 0 0 2px var(--navy) inset;">이 카드로 보내기</button>
+        ${productPageBtnHtml(a.config)}
       </div>
     </div>
   `).join('');
@@ -2655,6 +2661,7 @@ function renderPinnedGrid(){
       </div>
       <div class="btns">
         <button data-act="sendOne" style="box-shadow:0 0 0 2px var(--navy) inset;">이 카드로 보내기</button>
+        ${productPageBtnHtml(c)}
       </div>
     </div>
   `).join('');
@@ -2941,7 +2948,7 @@ async function renderGallery(){
           <div class="d">시리즈코드 ${escapeHtml(it.code)}</div>
         </div>
         <div class="btns">
-          <button data-act="galleryLink">링크 확인↗</button>
+          <button data-act="galleryLink">상품페이지 열기 ↗</button>
           <button data-act="galleryMake">카드로 만들기</button>
         </div>
       </div>`).join('');
@@ -3597,6 +3604,12 @@ async function fetchModelShard(prefix){
 function misumiDetailUrl(seriesCode){ return `https://kr.misumi-ec.com/vona2/detail/${seriesCode}/`; }
 // DB(shards)에 없는 형번은 시리즈코드를 모르므로, 미스미 검색결과 페이지로 보낸다(형번을 Keyword로만 넣으면 됨).
 function misumiSearchUrl(keyword){ return `https://kr.misumi-ec.com/vona2/result/?Keyword=${encodeURIComponent(keyword)}&isReSearch=0`; }
+// 카드마다 "상품페이지 열기" 버튼이 있었다 없었다 하던 걸 통일한다 - 링크가 이미 있으면 그 링크로,
+// 없으면 형번(또는 상품명)으로 미스미 검색 결과 페이지를 대신 열어준다(항상 눌러서 뭔가는 나오게).
+function productPageUrl(c){ return (c && c.link) ? c.link : misumiSearchUrl((c && (c.model || c.name)) || ''); }
+function productPageBtnHtml(c){
+  return `<a class="btn" href="${productPageUrl(c)}" target="_blank" rel="noopener" style="flex:1;text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;padding:7px;font-size:11.5px;box-sizing:border-box;">상품페이지 열기 ↗</a>`;
+}
 
 /* ----- 형번 "줄기" 폴백 (끝자리 치수만 다른 형번을 DB에서 못 찾았을 때, 같은 시리즈의 다른 사이즈로 추정) -----
    build_data.py에서 전체 CSV로 검증: 끝자리 숫자 하나를 뗀 줄기가 단일 시리즈로만 이어지는 비율이 99.4%.
