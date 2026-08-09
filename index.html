@@ -220,13 +220,15 @@
 </div>
 
 <div class="panel" id="fieldPanel">
-  <div class="hint">
-    <b>경제형 대표상품 라인업</b> - 자주 찾는 22개 대표 카테고리를 검색/필터와 무관하게 이 탭 맨 위에 항상 고정해뒀습니다.
+  <div class="hint" style="background:#eef3fb;border-left:3px solid var(--navy);">
+    <span style="background:var(--navy);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:6px;">매출 TOP 22</span>
+    <b>경제형 대표상품 라인업</b> - 형번·가격까지 확인된 22개 핵심 상품입니다. 수정 없이 바로 보내도 되는 완성 카드예요.
   </div>
   <div class="arch-grid" id="pinnedGrid" style="margin-bottom:24px;"></div>
 
-  <div class="hint">
-    <b>경제형 전체 라인업</b> - 카테고리별 대표 품목의 사진과 상품페이지 링크만 간단히 모아둔 목록입니다(가격/형번은 아직 미확인). 카테고리를 눌러 펼쳐보세요. 카드마다 체크해서 여러 개를 한번에 메일로 보낼 수 있습니다.
+  <div class="hint" style="background:#f7f8fa;border-left:3px solid #9aa0a6;">
+    <span style="background:#9aa0a6;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:6px;">전체 152개</span>
+    <b>경제형 전체 라인업</b> - 카테고리별 대표 품목의 사진과 상품페이지 링크만 모아둔 목록입니다(가격·형번은 아직 미확인). 카테고리를 눌러 펼쳐보고, 체크박스로 여러 개를 골라 한번에 보낼 수 있습니다.
   </div>
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
     <button class="btn primary" id="btnAllCatSendSelected">선택한 카드 함께 보내기</button>
@@ -1029,6 +1031,12 @@ function updateCardSelCount(){
   const el = document.getElementById('cardSelCount');
   if(el) el.textContent = total ? `선택 ${sel} / ${total}개` : '';
 }
+// 카드마다 형번검색/이미지URL/링크/확인/사입가/유효기간/복제/순서이동 버튼 9개가 항상 다 펼쳐져 있으면
+// 카드가 몇 장만 있어도 화면이 정신없어 보인다는 피드백이 있어서(2026-08-09), 자주 안 쓰는 것들은
+// "고급 편집"으로 접어두고 기본으로는 체크박스/삭제/보내기만 보이게 한다. 펼침 상태는 카드ID 기준으로
+// 기억해서, 다른 카드를 편집하는 동안에도 펼쳐둔 카드는 계속 펼쳐진 채로 남아있다(새로고침하면 초기화됨 -
+// 접기 상태 자체가 중요한 데이터는 아니라서 localStorage까지 저장할 필요는 없다고 판단).
+let advExpanded = new Set();
 function renderGrid(){
   const grid = document.getElementById('grid');
   grid.innerHTML = '';
@@ -1057,21 +1065,29 @@ function renderGrid(){
       ${marginNoteHtml(c)}
       <div class="card-actions">
         <div class="row-btns">
-          <button data-act="modelSearch" title="형번 검색 (링크 자동)">형번 검색</button>
-          <button data-act="imgurl" title="이미지 URL 붙여넣기">이미지URL</button>
-          <button data-act="link" class="${c.link ? 'link-set' : ''}" title="상품 링크 직접 입력">링크${c.link ? ' ✓' : ''}</button>
-          <button data-act="linkOpen" title="새 탭에서 열어 정확한 상품페이지로 바로가기">확인↗</button>
-        </div>
-        <div class="row-btns">
-          <button data-act="costPrice" title="사입가 입력 (내부용, 이익률 계산)">사입가${c.costPrice > 0 ? ' ✓' : ''}</button>
-          <button data-act="validUntil" title="가격 유효기간 문구 입력">유효기간${c.validUntil ? ' ✓' : ''}</button>
-          <button data-act="dup" title="이 카드와 같은 내용으로 하나 더 만들기">복제</button>
-          <button data-act="delete" class="danger" title="이 카드 삭제">삭제</button>
-        </div>
-        <div class="row-btns">
-          <button data-act="left" title="앞으로 이동">◀</button>
-          <button data-act="right" title="뒤로 이동">▶</button>
+          <button data-act="delete" class="danger" style="flex:1;" title="이 카드 삭제">삭제</button>
           <button data-act="sendFlow" class="link-set" style="flex:3;">이 카드로 보내기</button>
+        </div>
+        <div class="adv-toggle" data-act="toggleAdv" style="text-align:center;font-size:11.5px;color:var(--text-sub);cursor:pointer;padding:6px 0 2px;">
+          고급 편집 ${advExpanded.has(c.id) ? '▴ 접기' : '▾ 펼치기'}
+          ${(c.link || c.costPrice>0 || c.validUntil) ? `<span style="color:var(--navy);">(${c.link?'링크✓ ':''}${c.costPrice>0?'사입가✓ ':''}${c.validUntil?'유효기간✓':''})</span>` : ''}
+        </div>
+        <div class="adv-panel" style="display:${advExpanded.has(c.id) ? 'block' : 'none'};">
+          <div class="row-btns">
+            <button data-act="modelSearch" title="형번 검색 (링크 자동)">형번 검색</button>
+            <button data-act="imgurl" title="이미지 URL 붙여넣기">이미지URL</button>
+            <button data-act="link" class="${c.link ? 'link-set' : ''}" title="상품 링크 직접 입력">링크${c.link ? ' ✓' : ''}</button>
+            <button data-act="linkOpen" title="새 탭에서 열어 정확한 상품페이지로 바로가기">확인↗</button>
+          </div>
+          <div class="row-btns">
+            <button data-act="costPrice" title="사입가 입력 (내부용, 이익률 계산)">사입가${c.costPrice > 0 ? ' ✓' : ''}</button>
+            <button data-act="validUntil" title="가격 유효기간 문구 입력">유효기간${c.validUntil ? ' ✓' : ''}</button>
+            <button data-act="dup" title="이 카드와 같은 내용으로 하나 더 만들기">복제</button>
+          </div>
+          <div class="row-btns">
+            <button data-act="left" title="앞으로 이동">◀ 순서 이동</button>
+            <button data-act="right" title="뒤로 이동">순서 이동 ▶</button>
+          </div>
         </div>
       </div>
     `;
@@ -1239,6 +1255,12 @@ function renderGrid(){
     // (2026-08-06) "보관함 저장" 버튼은 없앴다 - 대신 카드를 보내면(이 카드로 보내기/Outlook 메일 준비/
     // 이미지로 복사) 발송이력에 카드 내용까지 통째로 자동 기록되고, 발송이력에서 "편집으로 불러오기"로
     // 다시 꺼내 쓸 수 있다(saveCardToArchive는 여전히 다른 곳-외근영업 라이브러리 등-에서 쓰이므로 남겨둠).
+
+    // 고급 편집(형번검색/이미지URL/링크/사입가/유효기간/복제/순서이동) 펼치기·접기
+    wrap.querySelector('[data-act="toggleAdv"]').onclick = ()=>{
+      if(advExpanded.has(c.id)) advExpanded.delete(c.id); else advExpanded.add(c.id);
+      renderGrid();
+    };
 
     // 이 카드만 골라 고객 선택 → 방문전/후 선택 → Outlook까지 한번에 진행
     wrap.querySelector('[data-act="sendFlow"]').onclick = ()=> openSendFlowModal(c);
@@ -2263,10 +2285,12 @@ async function loadAllCategories(){
             <div class="n">${escapeHtml(it.name)}</div>
             <div class="d">${escapeHtml(cat)}</div>
           </div>
-          <div class="btns">
-            <button data-act="sendOne" style="box-shadow:0 0 0 2px var(--navy) inset;">이 카드로 보내기</button>
-            <button data-act="addOne">편집에 담기</button>
-            <a class="btn" href="${link}" target="_blank" rel="noopener" style="text-decoration:none;text-align:center;display:inline-block;">상품페이지 열기</a>
+          <div class="btns" style="flex-direction:column;">
+            <div style="display:flex;gap:6px;">
+              <button data-act="sendOne" style="flex:1;box-shadow:0 0 0 2px var(--navy) inset;">이 카드로 보내기</button>
+              <button data-act="addOne" style="flex:1;">편집에 담기</button>
+            </div>
+            <a class="btn" href="${link}" target="_blank" rel="noopener" style="text-decoration:none;text-align:center;display:block;padding:6px;font-size:11px;">상품페이지 열기 ↗</a>
           </div>
         </div>`;
       }).join('');
