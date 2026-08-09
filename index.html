@@ -226,7 +226,12 @@
   <div class="arch-grid" id="pinnedGrid" style="margin-bottom:24px;"></div>
 
   <div class="hint">
-    <b>경제형 전체 라인업</b> - 카테고리별 대표 품목의 사진과 상품페이지 링크만 간단히 모아둔 목록입니다(가격/형번은 아직 미확인). 카테고리를 눌러 펼쳐보세요.
+    <b>경제형 전체 라인업</b> - 카테고리별 대표 품목의 사진과 상품페이지 링크만 간단히 모아둔 목록입니다(가격/형번은 아직 미확인). 카테고리를 눌러 펼쳐보세요. 카드마다 체크해서 여러 개를 한번에 메일로 보낼 수 있습니다.
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+    <button class="btn primary" id="btnAllCatSendSelected">선택한 카드 함께 보내기</button>
+    <button class="btn" id="btnAllCatAddSelected">선택한 카드 편집에 담기</button>
+    <span id="allCatSelCount" style="font-size:12.5px;color:var(--text-sub);"></span>
   </div>
   <div id="allCatSections" style="margin-bottom:24px;"></div>
 
@@ -1815,10 +1820,12 @@ function cardHtml(c){
 <tr><td style="padding:11px 14px;">
   <div>&nbsp;<font face="Malgun Gothic" color="#0A4FA3" size="1"><b>${c.category || ''}</b></font>&nbsp;${emphasisTagHtml}</div>
   <div style="margin-top:8px;"><font face="Malgun Gothic" color="#1a1a1a" size="3"><b>${c.name}</b></font></div>
-  <div style="margin-top:4px;"><font face="Malgun Gothic" color="#444444" size="2">형번 : ${c.model}</font></div>
-  <div><font face="Malgun Gothic" color="#444444" size="2">${c.delivery}</font></div>
-  <div style="margin-top:6px;"><font face="Malgun Gothic" color="#999999" size="2"><s>${fmtWon(c.listPrice)}</s></font></div>
+  ${c.model ? `<div style="margin-top:4px;"><font face="Malgun Gothic" color="#444444" size="2">형번 : ${c.model}</font></div>` : ''}
+  ${c.delivery ? `<div><font face="Malgun Gothic" color="#444444" size="2">${c.delivery}</font></div>` : ''}
+  ${c.salePrice ? `
+  ${c.listPrice > c.salePrice ? `<div style="margin-top:6px;"><font face="Malgun Gothic" color="#999999" size="2"><s>${fmtWon(c.listPrice)}</s></font></div>` : ''}
   <div><font face="Malgun Gothic" color="#c0122e" size="5"><b>${fmtWon(c.salePrice)}</b></font></div>
+  ` : ''}
   ${c.validUntil ? `<div style="margin-top:2px;"><font face="Malgun Gothic" color="#d97706" size="2">가격 유효기간: ${c.validUntil}</font></div>` : ''}
 </td></tr>
 </table>`;
@@ -1838,11 +1845,20 @@ document.getElementById('btnCopyCode').onclick = ()=>{
    - 편집용 버튼(크기 슬라이더, Ctrl+V 안내 등)이 같이 찍히는 문제 방지
    - 외부 이미지 URL은 캡처가 아니라 <img src="...">로 그대로 참조하므로 CORS로 깨지지 않음
    - cardHtml()과 같은 bgcolor/font 태그 방식이라 Outlook에서도 색상이 유지됨 */
+// 가격/형번이 아직 없는 카드(예: 경제형 전체 라인업의 사진+링크만 있는 카드)도 자연스럽게
+// 한 줄로 표시하기 위한 공용 헬퍼 - 값이 없는 항목은 그냥 생략한다.
+function cardPlainLine(c){
+  let s = c.name || '';
+  if(c.model) s += ` (형번:${c.model})`;
+  if(c.salePrice) s += ` - ${fmtWon(c.salePrice)}`;
+  if(c.link) s += ' / ' + c.link;
+  return s;
+}
 async function writeCardsToClipboard(){
   const sendCards = getCardsForSend();
   const rowHtml = sendCards.map(c=>`<td style="padding:0 8px;vertical-align:top;">${cardHtml(c)}</td>`).join('');
   const fullHtml = `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>${rowHtml}</tr></table>`;
-  const plainText = sendCards.map(c=>`${c.name} (형번:${c.model}) - ${fmtWon(c.salePrice)}${c.link ? ' / ' + c.link : ''}`).join('\n');
+  const plainText = sendCards.map(cardPlainLine).join('\n');
   const blob = new Blob([fullHtml], { type:'text/html' });
   const textBlob = new Blob([plainText], { type:'text/plain' });
   await navigator.clipboard.write([new ClipboardItem({ 'text/html': blob, 'text/plain': textBlob })]);
@@ -2177,7 +2193,35 @@ async function loadPinnedProducts(){
 loadPinnedProducts();
 
 /* 경제형 전체 라인업 - data/economy_all_categories.json (카테고리별 대표 품목, 사진+상품페이지 링크만 간단히).
-   가격/형번 등은 아직 확인 전이라 넣지 않는다. 카드 편집으로 담기보다는 "상품페이지 열기" 용도가 중심. */
+   가격/형번 등은 아직 확인 전이라 카드에는 넣지 않는다(cardHtml/cardPlainLine이 값 없는 줄은 알아서
+   생략하도록 되어있다). [경제형 대표상품 라인업]과 똑같이 "이 카드로 보내기"/"편집에 담기"를 항목마다
+   붙이고, 체크박스로 여러 개를 골라 위 "선택한 카드 함께 보내기"로 한번에 보낼 수도 있게 한다. */
+let allCatByKey = {};            // key -> {category, name, code, path}
+let allCatSelected = new Set();  // 체크된 key 집합
+function allCatCardObj(it, imgEl){
+  const link = `https://kr.misumi-ec.com/vona2/${it.path}`;
+  const img = (imgEl && imgEl.tagName==='IMG') ? imgEl.src : '';
+  return {
+    id: uid(), category: it.category, name: it.name, model:'', img, link,
+    delivery:'', listPrice:0, salePrice:0, badge:0, checked:true
+  };
+}
+function updateAllCatSelCount(){
+  const el = document.getElementById('allCatSelCount');
+  if(el) el.textContent = allCatSelected.size ? `선택 ${allCatSelected.size}개` : '';
+}
+function getSelectedAllCatCards(){
+  const wrap = document.getElementById('allCatSections');
+  const targets = [];
+  wrap.querySelectorAll('.arch-item').forEach(el=>{
+    const key = el.dataset.key;
+    if(!allCatSelected.has(key)) return;
+    const it = allCatByKey[key];
+    if(!it) return;
+    targets.push(allCatCardObj(it, el.querySelector('img.thumb')));
+  });
+  return targets;
+}
 async function loadAllCategories(){
   const wrap = document.getElementById('allCatSections');
   if(!wrap) return;
@@ -2187,7 +2231,9 @@ async function loadAllCategories(){
     const list = await res.json();
     if(!Array.isArray(list) || list.length===0) return;
     const byCat = {};
-    list.forEach(it=>{
+    list.forEach((it, i)=>{
+      it._key = 'ac_' + i;
+      allCatByKey[it._key] = it;
       if(!byCat[it.category]) byCat[it.category] = [];
       byCat[it.category].push(it);
     });
@@ -2205,11 +2251,12 @@ async function loadAllCategories(){
       const items = byCat[cat];
       const grid = wrap.querySelector(`.arch-grid[data-cat="${cssEscape(cat)}"]`);
       if(!grid) return;
-      grid.innerHTML = items.map((it, i)=>{
+      grid.innerHTML = items.map(it=>{
         const directImg = `https://kr.misumi-ec.com/pr/vona/economy/images/index/${it.code}.jpg`;
         const link = `https://kr.misumi-ec.com/vona2/${it.path}`;
         return `
-        <div class="arch-item" data-catcode="${cat}__${i}">
+        <div class="arch-item" data-key="${it._key}">
+          <input type="checkbox" class="sel-check" data-act="acSel" ${allCatSelected.has(it._key)?'checked':''}>
           <img class="thumb" src="${directImg}" alt="${escapeHtml(it.name)}"
             onerror="handleAllCatThumbError(this, '${it.code}')">
           <div class="meta">
@@ -2217,11 +2264,31 @@ async function loadAllCategories(){
             <div class="d">${escapeHtml(cat)}</div>
           </div>
           <div class="btns">
+            <button data-act="sendOne" style="box-shadow:0 0 0 2px var(--navy) inset;">이 카드로 보내기</button>
+            <button data-act="addOne">편집에 담기</button>
             <a class="btn" href="${link}" target="_blank" rel="noopener" style="text-decoration:none;text-align:center;display:inline-block;">상품페이지 열기</a>
           </div>
         </div>`;
       }).join('');
+      grid.querySelectorAll('.arch-item').forEach(el=>{
+        const key = el.dataset.key;
+        const it = allCatByKey[key];
+        if(!it) return;
+        el.querySelector('[data-act="acSel"]').onchange = (e)=>{
+          if(e.target.checked) allCatSelected.add(key); else allCatSelected.delete(key);
+          updateAllCatSelCount();
+        };
+        el.querySelector('[data-act="sendOne"]').onclick = ()=>{
+          openSendFlowModal(allCatCardObj(it, el.querySelector('img.thumb')));
+        };
+        el.querySelector('[data-act="addOne"]').onclick = ()=>{
+          cards.push(allCatCardObj(it, el.querySelector('img.thumb')));
+          persistCards();
+          toast(`"${it.name}" 카드를 [카드 편집]에 담았습니다.`);
+        };
+      });
     });
+    updateAllCatSelCount();
   }catch(e){ console.warn('경제형 전체 라인업 로드 실패:', e); }
 }
 function cssEscape(s){ return String(s).replace(/["\\]/g, '\\$&'); }
@@ -2238,6 +2305,18 @@ function handleAllCatThumbError(imgEl, code){
   });
 }
 loadAllCategories();
+document.getElementById('btnAllCatSendSelected').onclick = ()=>{
+  const targets = getSelectedAllCatCards();
+  if(targets.length===0){ toast('보낼 카드를 먼저 선택하세요.'); return; }
+  openSendFlowModal(targets);
+};
+document.getElementById('btnAllCatAddSelected').onclick = ()=>{
+  const targets = getSelectedAllCatCards();
+  if(targets.length===0){ toast('편집에 담을 카드를 먼저 선택하세요.'); return; }
+  targets.forEach(c=> cards.push(c));
+  persistCards();
+  toast(`${targets.length}개 카드를 [카드 편집]에 담았습니다.`);
+};
 
 document.getElementById('libSearch').oninput = renderLibGrid;
 document.getElementById('btnLibAddSelected').onclick = ()=>{
@@ -3648,7 +3727,7 @@ function findTemplateByNameContains(str){
 async function writeSpecificCardsToClipboard(cardList){
   const rowHtml = cardList.map(c=>`<td style="padding:0 8px;vertical-align:top;">${cardHtml(c)}</td>`).join('');
   const fullHtml = `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>${rowHtml}</tr></table>`;
-  const plainText = cardList.map(c=>`${c.name} (형번:${c.model}) - ${fmtWon(c.salePrice)}${c.link ? ' / ' + c.link : ''}`).join('\n');
+  const plainText = cardList.map(cardPlainLine).join('\n');
   await navigator.clipboard.write([new ClipboardItem({
     'text/html': new Blob([fullHtml], {type:'text/html'}),
     'text/plain': new Blob([plainText], {type:'text/plain'})
