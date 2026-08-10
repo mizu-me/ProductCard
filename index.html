@@ -745,6 +745,22 @@ function persistArchive(){
   localStorage.setItem(FLAG, '1');
 })();
 
+// 2026-08-10 일회성 정리: 경제형 대표상품 22개 카드에서 상품명 위에 뜨던 "경제형 대표상품"
+// 구분 태그(category 필드에 라인업 이름이 그대로 들어가 있던 문제)를 삭제했다. data/pinned_products.json은
+// 새로 불러오는 카드부터 바로 반영되지만, 이미 [카드 목록](cards)이나 [보관함](archive)에
+// 들어가 있던 카드는 그 시점의 값을 그대로 들고 있어서 코드만 바꿔서는 안 지워진다. 그래서 한 번만
+// cards/archive를 훑어서 category가 정확히 "경제형 대표상품"인 카드의 태그를 지워준다.
+(function cleanupEconomyLineupCategoryTag(){
+  const FLAG = 'cardEditor.cleanup_20260810_economyTag';
+  if(localStorage.getItem(FLAG)) return;
+  let changedCards = false, changedArchive = false;
+  cards.forEach(c=>{ if(c && c.category === '경제형 대표상품'){ c.category = ''; changedCards = true; } });
+  archive.forEach(a=>{ if(a && a.config && a.config.category === '경제형 대표상품'){ a.config.category = ''; changedArchive = true; } });
+  if(changedCards) persistCards();
+  if(changedArchive) persistArchive();
+  localStorage.setItem(FLAG, '1');
+})();
+
 // 앞으로도 "회사 대표 카드"가 나중에 목록에서 빠지는 경우를 대비한 일반적인 정리 로직.
 // loadPreparedCards()가 매번 호출하며, "회사에서 자동으로 넣어준 카드"(_출처 마킹된 것)이면서
 // 지금 data/prepared_cards.json에 더 이상 없는 카테고리코드면 자동으로 정리한다.
