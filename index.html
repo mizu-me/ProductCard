@@ -83,6 +83,12 @@
   .p-card .listp{ font-size:12px; color:#999; text-decoration:line-through; margin-top:6px; outline:none; }
   .p-card .salep{ font-size:18px; font-weight:800; color:var(--red); outline:none; }
   .p-card [contenteditable]:focus{ background:#fff8e0; }
+  /* 2026-08-11: 납기 표시를 "재고품"/"N일째 출하"로 단순화 - 값이 아직 없을 때는(재편집 중이거나
+     확인 전) 편집칸이 완전히 비어 보여서 클릭할 자리를 못 찾는 문제가 있었어서, 빈 상태에서만
+     안내 문구를 살짝 흐리게 보여준다(실제 저장되는 값은 아니라 다시 렌더링해도 항상 같게 나온다). */
+  .p-card .row2.delivery{ font-weight:700; color:#0A4FA3; }
+  .p-card .row2.delivery:empty::before{ content:'납기 확인중 (클릭하여 입력)'; color:#b3b8bf; font-weight:400; font-style:italic; }
+  .p-card .disclaimer{ font-size:10.5px; color:#9aa0a6; margin-top:10px; padding-top:8px; border-top:1px dashed var(--gray-line); line-height:1.5; }
 
   .card-actions{ margin-top:8px; display:flex; flex-direction:column; gap:6px; }
   .row-btns{ display:flex; gap:4px; }
@@ -178,12 +184,14 @@
   /* 보관함 - 카드형(보조) */
   .arch-grid{ display:flex; gap:14px; flex-wrap:wrap; }
   .arch-item{ width:220px; border:1px solid var(--gray-line); border-radius:8px; background:#fff; overflow:hidden; position:relative; box-sizing:border-box; }
-  .arch-item.selected{ border-color:var(--navy); box-shadow:0 0 0 1px var(--navy) inset; }
+  /* 2026-08-11: 카드를 클릭/체크해서 선택했을 때 얇은 남색 테두리라 잘 안 보이고 "선택됨"이라는
+     느낌이 약하다는 피드백 - 굵은 빨간 테두리로 바꿔서 눈에 확실히 띄게 한다. */
+  .arch-item.selected{ border:2px solid var(--red); box-shadow:0 0 0 1px var(--red) inset; }
   .arch-item .thumb{ width:100%; height:175px; max-width:100%; max-height:175px; object-fit:contain; object-position:center; background:#fff; display:block; box-sizing:border-box; }
   .arch-item .thumb-empty{ width:100%; height:175px; display:flex; align-items:center; justify-content:center; color:#9aa0a6; font-size:12px; background:#f2f4f7; text-align:center; line-height:1.4; }
   .arch-item .sel-check{ position:absolute; top:8px; left:8px; width:20px; height:20px; z-index:2; cursor:pointer; }
   .arch-item .add-check{ position:absolute; top:8px; right:8px; width:24px; height:24px; z-index:2; cursor:pointer; border-radius:6px; border:1.5px solid var(--gray-line); background:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:900; color:#fff; box-shadow:0 1px 3px rgba(0,0,0,.15); }
-  .arch-item .add-check.on{ background:var(--navy); border-color:var(--navy); }
+  .arch-item .add-check.on{ background:var(--red); border-color:var(--red); }
   .arch-item .meta{ padding:10px 12px; }
   .arch-item .meta .n{ font-weight:800; font-size:13.5px; margin-bottom:3px; }
   .arch-item .meta .d{ font-size:11.5px; color:var(--text-sub); }
@@ -994,6 +1002,21 @@ function logSend(customerOverride, tplName, cardListOverride, visitDate){
 }
 
 function fmtWon(n){ return '₩' + Math.round(n).toLocaleString() + '원'; }
+// 2026-08-11: c.delivery 필드는 그동안 쌓인 경로가 제각각이라(가격/납기 CSV에서 채운 숫자·"N일째~",
+// MISUMI에서 "당일출하가능" 확인해 넣은 값, 새 카드 기본값 "납기 : 문의", 엑셀 일괄 업로드가 붙이는
+// "납기 : " 접두사 등) 원본 형식이 통일돼 있지 않다. 고객이 보는 카드에는 이 원본을 그대로 보여주지 않고,
+// 여기서 한 번에 "재고품" / "N일째 출하" 두 가지 표현으로만 단순화한다. 확정된 정보가 없으면(빈 값,
+// "문의" 등) 빈 문자열을 돌려주고, 그 자리는 카드 맨 아래 안내 문구("정확한 납기는 견적 부탁드립니다")로
+// 대체한다. 같은 값을 다시 넣어도 항상 같은 결과가 나오게 만들어서(예: "재고품"→"재고품"), 편집칸에
+// 표시된 값을 그대로 저장해도 다음에 또 정상적으로 보인다.
+function formatDeliveryText(raw){
+  if(!raw) return '';
+  let s = String(raw).trim().replace(/^납기\s*:\s*/, '').trim();
+  if(!s || /문의/.test(s)) return '';
+  if(/당일|재고|즉시/.test(s)) return '재고품';
+  const m = s.match(/(\d+)/);
+  return m ? `${m[1]}일째 출하` : '';
+}
 
 // 사입가 대비 이익률 메모(내부용). 마진 구간에 따라 색이 바뀐다: 적자=빨강, 20% 미만=주황, 20% 이상=초록.
 function marginNoteHtml(c){
@@ -1299,7 +1322,7 @@ function getCatalogAddMatches(){
   pinnedProductsList.forEach(c=>{
     if(pinnedSelected.has(c.id)) return;
     if((c.name||'').toLowerCase().includes(q) || (c.model||'').toLowerCase().includes(q) || (c.category||'').toLowerCase().includes(q)){
-      out.push({ kind:'pinned', key:c.id, name:c.name, sub: c.model ? '형번 '+c.model : (c.category||''), imgSrc:c.img||'' });
+      out.push({ kind:'pinned', key:c.id, name:c.name, sub: c.model ? '형번 '+c.model : '', imgSrc:c.img||'' });
     }
   });
   allCatFlatList.forEach(it=>{
@@ -1313,7 +1336,7 @@ function getCatalogAddMatches(){
     if(libSelectedMap.has(a.id)) return;
     const c = a.config || {};
     if((c.name||'').toLowerCase().includes(q) || (c.model||'').toLowerCase().includes(q) || (c.category||'').toLowerCase().includes(q) || (c._대구분||'').toLowerCase().includes(q)){
-      out.push({ kind:'lib', key:a.id, name:c.name, sub: c.model ? '형번 '+c.model : (c.category||''), imgSrc:c.img||'' });
+      out.push({ kind:'lib', key:a.id, name:c.name, sub: c.model ? '형번 '+c.model : '', imgSrc:c.img||'' });
     }
   });
   return out.slice(0, 24); // 너무 길어지지 않도록 상한
@@ -1350,7 +1373,7 @@ function renderCardListPane(){
         <div class="row-thumb">${c.img?`<img src="${c.img}">`:''}</div>
         <div class="row-info">
           <div class="row-name">${escapeHtml(c.name||'상품명 없음')}${c.checked===false?' <span style="color:#b0b6c0;font-weight:400;">(제외)</span>':''}</div>
-          <div class="row-model">${c.model ? '형번 '+escapeHtml(c.model) : escapeHtml(c.category||'')}</div>
+          <div class="row-model">${c.model ? '형번 '+escapeHtml(c.model) : ''}</div>
         </div>
       </div>
     `).join('');
@@ -1459,13 +1482,14 @@ function expandedBlockHtml(c){
         <div class="imgbox" data-act="img" tabindex="0" title="클릭: 이미지 파일 선택/URL 입력 중 고르기 · 여기 클릭 후 Ctrl+V: 캡처 이미지 붙여넣기">${c.img ? `<img src="${c.img}" style="transform:scale(${(c.imgScale||100)/100});">` : '상품 이미지 (클릭 또는 Ctrl+V)'}<span class="paste-tip">Ctrl+V 가능</span>${c.img ? `<button data-act="imgDel" class="img-x-btn" title="이미지 삭제">×</button>` : ''}</div>
         ${c.img ? `<div class="zoom-row"><span style="font-size:11px;">크기</span><input type="range" min="50" max="200" value="${c.imgScale||100}" data-act="zoom"><span>${c.imgScale||100}%</span></div>` : ''}
         <div class="body">
-          ${c.category ? `<span class="tag2" contenteditable="true" data-field="category">${c.category}</span>` : ''}${(c._강조&&c._강조.length) ? `<span class="emphasis-tag">${c._강조.join(' · ')}</span>` : ''}
+          ${(c._강조&&c._강조.length) ? `<span class="emphasis-tag">${c._강조.join(' · ')}</span>` : ''}
           <div class="pname" contenteditable="true" data-field="name">${c.name}</div>
           <div class="row2" contenteditable="true" data-field="model">형번 : ${c.model}</div>
-          <div class="row2" contenteditable="true" data-field="delivery">${c.delivery}</div>
+          <div class="row2 delivery" contenteditable="true" data-field="delivery">${formatDeliveryText(c.delivery)}</div>
           <div class="listp" contenteditable="true" data-field="listPrice">${fmtWon(c.listPrice)}</div>
           <div class="salep" contenteditable="true" data-field="salePrice">${fmtWon(c.salePrice)}</div>
           ${c.validUntil ? `<div class="row2" style="color:#d97706;margin-top:4px;">가격 유효기간: ${escapeHtml(c.validUntil)}</div>` : ''}
+          <div class="disclaimer">정확한 납기는 견적 부탁드립니다</div>
         </div>
       </div>
       ${marginNoteHtml(c)}
@@ -2328,15 +2352,16 @@ function cardHtml(c){
 </tr>
 <tr><td bgcolor="#ffffff" align="center" style="padding:10px;">${imgCell}</td></tr>
 <tr><td style="padding:11px 14px;">
-  ${(c.category || emphasisList.length) ? `<div>&nbsp;<font face="Malgun Gothic" color="#0A4FA3" size="1"><b>${c.category || ''}</b></font>&nbsp;${emphasisTagHtml}</div>` : ''}
+  ${emphasisList.length ? `<div>&nbsp;${emphasisTagHtml}</div>` : ''}
   <div style="margin-top:8px;"><font face="Malgun Gothic" color="#1a1a1a" size="3"><b>${c.name}</b></font></div>
   ${c.model ? `<div style="margin-top:4px;"><font face="Malgun Gothic" color="#444444" size="2">형번 : ${c.model}</font></div>` : ''}
-  ${c.delivery ? `<div><font face="Malgun Gothic" color="#444444" size="2">${c.delivery}</font></div>` : ''}
+  ${formatDeliveryText(c.delivery) ? `<div><font face="Malgun Gothic" color="#0A4FA3" size="2"><b>${formatDeliveryText(c.delivery)}</b></font></div>` : ''}
   ${c.salePrice ? `
   ${c.listPrice > c.salePrice ? `<div style="margin-top:6px;"><font face="Malgun Gothic" color="#999999" size="2"><s>${fmtWon(c.listPrice)}</s></font></div>` : ''}
   <div><font face="Malgun Gothic" color="#c0122e" size="5"><b>${fmtWon(c.salePrice)}</b></font></div>
   ` : ''}
   ${c.validUntil ? `<div style="margin-top:2px;"><font face="Malgun Gothic" color="#d97706" size="2">가격 유효기간: ${c.validUntil}</font></div>` : ''}
+  <div style="margin-top:8px;padding-top:6px;border-top:1px dashed #e2e5ea;"><font face="Malgun Gothic" color="#9aa0a6" size="1">정확한 납기는 견적 부탁드립니다</font></div>
 </td></tr>
 </table>`;
 }
@@ -2673,7 +2698,6 @@ function renderPinnedGrid(){
       <div class="meta">
         <div class="n">${escapeHtml(c.name||'')}</div>
         <div class="d">형번 ${escapeHtml(c.model||'-')}</div>
-        ${c.category ? `<div class="d">${escapeHtml(c.category)}</div>` : ''}
       </div>
       <div class="btns">
         <button data-act="sendOne" style="box-shadow:0 0 0 2px var(--navy) inset;">이 카드로 보내기</button>
