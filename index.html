@@ -287,6 +287,8 @@
     <button class="btn" id="btnSelectNoneCards">전체 해제</button>
     <button class="btn primary" id="btnBulkArchive">체크된 카드 보관함으로 이동</button>
     <button class="btn" id="btnBulkDelete" style="color:var(--red);border-color:#f2c7cc;">체크된 카드 삭제</button>
+    <button class="btn" id="btnLoadPreparedCards">회사 대표 카드 불러오기 (카테고리별 매출 상위)</button>
+    <span id="preparedCardsStatus" style="font-size:12px;color:var(--text-sub);"></span>
     <span id="cardSelCount" style="font-size:12.5px;color:var(--text-sub);"></span>
     <div style="flex:1;"></div>
     <button class="btn" id="btnCostCalc" title="선택한 카드들의 사입가/이익률 계산">🧮 사입가 계산기</button>
@@ -322,11 +324,7 @@
   <div class="hint">
     <b>준비된 상품 카드 라이브러리</b> - 방문 전 미리 만들어 [보관함]에 저장해 둔 카드를 검색·카테고리로 찾아 바로 [카드 목록]에 담을 수 있는 곳입니다.
     카드를 보내면(이 카드로 보내기 등) 발송이력에 자동으로 기록되어 나중에 다시 꺼내 쓸 수 있습니다. 회사에서 카테고리별로 미리 골라둔 대표 상품(매출 상위순) 세트가 있으면
-    아래 버튼으로 한 번에 불러올 수 있습니다.
-  </div>
-  <div style="margin-bottom:10px;">
-    <button class="btn" id="btnLoadPreparedCards">회사 대표 카드 불러오기 (카테고리별 매출 상위)</button>
-    <span id="preparedCardsStatus" style="font-size:12px;color:var(--text-sub);"></span>
+    [카드 편집] 탭 상단의 "회사 대표 카드 불러오기" 버튼으로 한 번에 불러올 수 있습니다.
   </div>
   <div style="margin:12px 0 10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
     <input id="libSearch" placeholder="형번·상품명 일부만 입력해도 검색됨" style="flex:1;min-width:220px;padding:9px 14px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
@@ -2343,9 +2341,9 @@ function cardHtml(c){
     : '';
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="${borderWidth}" bordercolor="${borderColor}" width="250" style="border-collapse:collapse;font-family:${FONT};">
 <tr>
-  <td bgcolor="#163a7a" style="padding:10px 14px;">
+  <td bgcolor="#163a7a" style="padding:10px 14px;background-color:#163a7a;mso-line-height-rule:exactly;">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
-      <td align="left" valign="middle"><font face="Malgun Gothic" color="#ffffff" size="2"><b>MISUMI</b></font></td>
+      <td align="left" valign="middle" style="color:#ffffff;"><font face="Malgun Gothic" color="#ffffff" size="2"><b><span style="color:#ffffff;">MISUMI</span></b></font></td>
       <td align="right" valign="middle">${badgeTagHtml(c)}</td>
     </tr></table>
   </td>
@@ -2361,7 +2359,6 @@ function cardHtml(c){
   <div><font face="Malgun Gothic" color="#c0122e" size="5"><b>${fmtWon(c.salePrice)}</b></font></div>
   ` : ''}
   ${c.validUntil ? `<div style="margin-top:2px;"><font face="Malgun Gothic" color="#d97706" size="2">가격 유효기간: ${c.validUntil}</font></div>` : ''}
-  <div style="margin-top:8px;padding-top:6px;border-top:1px dashed #e2e5ea;"><font face="Malgun Gothic" color="#9aa0a6" size="1">정확한 납기는 견적 부탁드립니다</font></div>
 </td></tr>
 </table>`;
 }
