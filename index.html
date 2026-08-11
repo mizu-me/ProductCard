@@ -37,6 +37,7 @@
   .subnav-sep{ height:1px; background:var(--gray-line); margin:6px 4px; }
   .content-area{ flex:1; min-width:0; }
   .content-area .panel{ max-width:none; margin:0; padding:0; }
+  .card-list-pane{ width:280px; flex-shrink:0; }
   #topBtn{ position:fixed; right:28px; bottom:28px; width:44px; height:44px; border-radius:50%; background:var(--navy-dark); color:#fff; border:none; font-size:18px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.25); display:none; z-index:50; }
   #topBtn.show{ display:block; }
 
@@ -249,6 +250,28 @@
   /* 메일 설정 - 템플릿 목록 */
   .tpl-list-item{ padding:9px 12px; border:1px solid var(--gray-line); border-radius:8px; background:#fff; margin-bottom:6px; cursor:pointer; font-size:13px; font-weight:700; }
   .tpl-list-item.active{ border-color:var(--navy); box-shadow:0 0 0 1px var(--navy) inset; color:var(--navy); }
+
+  /* 2026-08-13 모바일 대응: 지금까지는 PC 고정폭(사이드 메뉴 150px + 카드목록 280px + 상세)이라
+     휴대폰 화면(대략 768px 이하)에서는 셋을 억지로 가로로 눌러 담다 보니 글자가 작아지고 가로
+     스크롤이 생겼다. 아래 미디어쿼리에서만: 1) 헤더/탭 여백을 줄이고, 2) 사이드 메뉴를 세로 목록
+     대신 위쪽에 가로로 스크롤되는 칩 형태로 바꾸고, 3) [카드 편집]의 "카드 목록 | 상세" 좌우 배치를
+     위아래로 쌓는다. 데스크톱 화면(768px 초과)에는 전혀 영향이 없다. */
+  @media (max-width: 768px){
+    header{ padding:14px 16px; }
+    header h1{ font-size:16px; }
+    header .sub{ font-size:11px; }
+    .tabs2{ padding:0 12px; gap:6px; }
+    .tab2{ flex:1; text-align:center; padding:10px 8px; font-size:13px; }
+    .app-body{ padding:0 12px 60px; flex-direction:column; gap:10px; }
+    .side-nav{ width:100%; flex-direction:row; overflow-x:auto; position:static; gap:6px; padding-bottom:4px; -webkit-overflow-scrolling:touch; }
+    .subnav-btn{ flex-shrink:0; white-space:nowrap; padding:8px 12px; font-size:12.5px; }
+    .subnav-sep{ width:1px; height:auto; align-self:stretch; margin:0 2px; }
+    .edit-split{ flex-direction:column; }
+    .card-list-pane{ width:100%; }
+    #cardListPane{ max-height:260px; }
+    .modal-box{ padding:16px 14px; }
+    .token-modal-split{ flex-direction:column; }
+  }
 </style>
 </head>
 <body>
@@ -281,7 +304,7 @@
 <div class="panel show" id="editPanel">
   <div class="hint">검색창에 형번/상품명을 입력하면 아래 상품 섹션과 왼쪽 카드 목록이 동시에 좁혀집니다. 상품 카드 우측 상단 체크 아이콘을 누르면 오른쪽에 바로 추가됩니다(체크한 순서대로). 오른쪽 작은 카드를 클릭하면 그 자리에서 크게 펼쳐져 이미지·텍스트·링크를 편집할 수 있습니다. 완성되면 <b>"Outlook 메일 준비"</b> 하나로 받는사람 선택부터 발송 전 점검까지 이어집니다.</div>
   <div style="position:sticky;top:0;z-index:5;background:var(--gray-bg);padding-bottom:10px;margin-bottom:6px;">
-    <input id="globalProductSearch" placeholder="🔍 형번 또는 상품명으로 전체 검색 (대표상품 · 전체 라인업 · 라이브러리 · 엑셀 카탈로그 · 준비된 카드 한번에)" style="width:100%;box-sizing:border-box;padding:12px 16px;border:1px solid var(--gray-line);border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.05);">
+    <input id="globalProductSearch" placeholder="🔍 형번 또는 상품명으로 검색" style="width:100%;box-sizing:border-box;padding:12px 16px;border:1px solid var(--gray-line);border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.05);">
   </div>
   <!-- 2026-08-11: 고객사명/고객이메일 입력칸은 실제 발송 시 별도의 "고객 선택" 팝업(주소록/직접입력)을
        이미 거치고, 여러 기능(getCustomer/getCustomerEmail, 보관함 저장, TA_LIST 자동완성)이 이 입력칸의
@@ -301,8 +324,8 @@
     <div style="flex:1;"></div>
     <button class="btn primary" id="btnPrepMail">Outlook 메일 준비</button>
   </div>
-  <div style="display:flex;gap:16px;align-items:flex-start;">
-    <div style="width:280px;flex-shrink:0;border:1px solid var(--gray-line);border-radius:10px;background:#fff;overflow:hidden;">
+  <div class="edit-split" style="display:flex;gap:16px;align-items:flex-start;">
+    <div class="card-list-pane" style="border:1px solid var(--gray-line);border-radius:10px;background:#fff;overflow:hidden;">
       <div id="cardListPane" style="max-height:680px;overflow-y:auto;"></div>
       <div id="btnAddCardList" style="text-align:center;padding:10px;font-size:12.5px;font-weight:700;color:var(--navy);cursor:pointer;border-top:1px solid var(--gray-line);">+ 카드 추가</div>
     </div>
@@ -4015,6 +4038,21 @@ if(!mailTemplates || mailTemplates.length===0){
 function persistMailTemplates(){ localStorage.setItem(LS_MAIL_TEMPLATES, JSON.stringify(mailTemplates)); }
 persistMailTemplates();
 
+// 2026-08-13 일회성 보강: "방문 전 사전 안내" 템플릿을 만든 뒤에 카드 붙여넣기 안내 줄을 추가했는데,
+// 이미 이 브라우저에 저장돼 있던 템플릿(localStorage)에는 이 줄이 없어서 실제 메일/미리보기에
+// 반영되지 않는 문제가 있었다. {논의상품} 토큰이 있는 템플릿에 안내 줄이 없으면 한 번만 끼워 넣는다.
+(function migrateCardPasteHintIntoTemplates(){
+  const HINT = '< 이곳에 카드를 붙여 넣어 주세요. (*붙여넣기 옵션-원본 서식 유지)';
+  let changed = false;
+  mailTemplates.forEach(t=>{
+    if(typeof t.body === 'string' && t.body.includes('{논의상품}') && !t.body.includes(HINT)){
+      t.body = t.body.replace('{논의상품}', '{논의상품}\n' + HINT);
+      changed = true;
+    }
+  });
+  if(changed) persistMailTemplates();
+})();
+
 let editingTplId = mailTemplates[0].id;
 
 const AUTO_TOKENS = ['고객사','담당자','오늘날짜','대표상품','외건수','상품목록','미팅일시'];
@@ -4116,7 +4154,7 @@ function openTokenModal(tokens, tpl, customerOverride, cardListOverride){
     overlay.innerHTML = `<div class="modal-box" style="width:820px;max-width:95vw;">
       <h3>메일 내용 입력</h3>
       <p>지금 고른 템플릿에 자동으로 안 채워지는 빈칸 { }이 있습니다. 입력하면 오른쪽 <b>미리보기</b>에서 실제 메일 내용이 바로 어떻게 바뀌는지 확인할 수 있습니다(입력한 값은 다음에도 기본값으로 남아있어요).</p>
-      <div style="display:flex;gap:18px;align-items:flex-start;">
+      <div class="token-modal-split" style="display:flex;gap:18px;align-items:flex-start;">
         <div style="flex:1;min-width:0;">
           ${tokens.map(t=>`<div class="modal-field">
             <label>{${escapeHtml(t)}}</label>
