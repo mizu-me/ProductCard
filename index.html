@@ -94,7 +94,7 @@
      "선택 자체가 안 되는" 문구로 만든다(브라우저는 ::before로 그려진 글자를 복사 대상에 포함하지 않음).
      user-select:none은 혹시 모를 예외 상황을 위한 이중 안전장치. */
   .p-card .disclaimer{ font-size:10.5px; color:#9aa0a6; margin-top:10px; padding-top:8px; border-top:1px dashed var(--gray-line); line-height:1.5; user-select:none; -webkit-user-select:none; }
-  .p-card .disclaimer::before{ content:'🔒 정확한 납기는 견적 부탁드립니다 (실무자 전용 · 고객 카드/복사에는 표시 안 됨)'; }
+  .p-card .disclaimer::before{ content:'🔒 정확한 납기는 견적 부탁드립니다'; }
 
   .card-actions{ margin-top:8px; display:flex; flex-direction:column; gap:6px; }
   .row-btns{ display:flex; gap:4px; }
@@ -283,7 +283,11 @@
   <div style="position:sticky;top:0;z-index:5;background:var(--gray-bg);padding-bottom:10px;margin-bottom:6px;">
     <input id="globalProductSearch" placeholder="🔍 형번 또는 상품명으로 전체 검색 (대표상품 · 전체 라인업 · 라이브러리 · 엑셀 카탈로그 · 준비된 카드 한번에)" style="width:100%;box-sizing:border-box;padding:12px 16px;border:1px solid var(--gray-line);border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.05);">
   </div>
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+  <!-- 2026-08-11: 고객사명/고객이메일 입력칸은 실제 발송 시 별도의 "고객 선택" 팝업(주소록/직접입력)을
+       이미 거치고, 여러 기능(getCustomer/getCustomerEmail, 보관함 저장, TA_LIST 자동완성)이 이 입력칸의
+       존재 자체에 의존하고 있어 완전히 코드를 뜯어내면 다른 화면이 깨질 위험이 있다. 그래서 안전하게
+       화면에서만 숨긴다(기능은 그대로 살아있고, 값은 그대로 유지됨). -->
+  <div style="display:none;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
     <input id="customerName" placeholder="고객사명 (보관함 저장용, 선택)" list="taListDatalist" style="padding:6px 10px;border-radius:8px;border:1px solid var(--gray-line);font-size:11.5px;width:150px;color:var(--text-sub);">
     <datalist id="taListDatalist"></datalist>
     <input id="customerEmail" placeholder="고객 이메일 (선택)" style="padding:6px 10px;border-radius:8px;border:1px solid var(--gray-line);font-size:11.5px;width:160px;color:var(--text-sub);">
@@ -293,11 +297,8 @@
     <button class="btn" id="btnSelectNoneCards">전체 해제</button>
     <button class="btn primary" id="btnBulkArchive">체크된 카드 보관함으로 이동</button>
     <button class="btn" id="btnBulkDelete" style="color:var(--red);border-color:#f2c7cc;">체크된 카드 삭제</button>
-    <button class="btn" id="btnLoadPreparedCards">회사 대표 카드 불러오기 (카테고리별 매출 상위)</button>
-    <span id="preparedCardsStatus" style="font-size:12px;color:var(--text-sub);"></span>
     <span id="cardSelCount" style="font-size:12.5px;color:var(--text-sub);"></span>
     <div style="flex:1;"></div>
-    <button class="btn" id="btnCostCalc" title="선택한 카드들의 사입가/이익률 계산">🧮 사입가 계산기</button>
     <button class="btn primary" id="btnPrepMail">Outlook 메일 준비</button>
   </div>
   <div style="display:flex;gap:16px;align-items:flex-start;">
@@ -327,13 +328,8 @@
     엑셀에는 <b>형번</b>(필수), <b>상품명·이미지URL·정가(단가)·판매가·카테고리·납기</b>(선택) 열이 있으면 자동으로 인식됩니다.
     이미지는 URL 형태(예: kr.misumi-ec.com 상품페이지에서 복사한 이미지 주소)도 되고, 엑셀에 이미지가 없으면 형번으로 자동 조회해 준비된 상품 사진을 채워줍니다.
   </div>
-  <div class="hint">
-    <b>준비된 상품 카드 라이브러리</b> - 방문 전 미리 만들어 [보관함]에 저장해 둔 카드를 검색·카테고리로 찾아 바로 [카드 목록]에 담을 수 있는 곳입니다.
-    카드를 보내면(이 카드로 보내기 등) 발송이력에 자동으로 기록되어 나중에 다시 꺼내 쓸 수 있습니다. 회사에서 카테고리별로 미리 골라둔 대표 상품(매출 상위순) 세트가 있으면
-    [카드 편집] 탭 상단의 "회사 대표 카드 불러오기" 버튼으로 한 번에 불러올 수 있습니다.
-  </div>
   <div style="margin:12px 0 10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-    <input id="libSearch" placeholder="형번·상품명 일부만 입력해도 검색됨" style="flex:1;min-width:220px;padding:9px 14px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
+    <input id="libSearch" placeholder="형번 또는 상품명으로 검색" style="flex:1;min-width:220px;padding:9px 14px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
     <span id="libCount" style="font-size:12px;color:var(--text-sub);align-self:center;"></span>
   </div>
   <div id="libChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
@@ -844,7 +840,7 @@ function showRepGateIfNeeded(force){
     overlay.innerHTML = '';
     // 이름을 입력/변경하면 회사 대표 카드(카테고리별 매출 상위)를 자동으로 불러온다.
     // loadPreparedCards()는 이미 담아둔 카드는 건너뛰고 새 것만 추가하는 방식(idempotent)이라
-    // 여러 번 호출되어도 중복이 생기지 않는다. 수동 "회사 대표 카드 불러오기" 버튼은 그대로 남겨둔다.
+    // 여러 번 호출되어도 중복이 생기지 않는다. (2026-08-13: 수동 불러오기 버튼은 삭제 - 이제 항상 자동으로만 실행된다.)
     loadPreparedCards();
   };
   overlay.querySelector('#repGateOk').onclick = submit;
@@ -1026,82 +1022,9 @@ function formatDeliveryText(raw){
   return m ? `${m[1]}일째 출하` : '';
 }
 
-// 사입가 대비 이익률 메모(내부용). 마진 구간에 따라 색이 바뀐다: 적자=빨강, 20% 미만=주황, 20% 이상=초록.
-function marginNoteHtml(c){
-  if(!(c.costPrice > 0)){
-    return `<div style="font-size:11px;color:#b3b8bf;padding:4px 2px 0;">(내부용) 사입가는 [사입가 계산기] 탭에서 입력할 수 있습니다</div>`;
-  }
-  if(!(c.salePrice > 0)){
-    return `<div style="font-size:11px;color:#9aa0a6;padding:4px 2px 0;">(내부용) 사입가 ${fmtWon(c.costPrice)}</div>`;
-  }
-  const margin = ((c.salePrice - c.costPrice) / c.salePrice) * 100;
-  const color = margin < 0 ? 'var(--red)' : (margin < 20 ? '#8a6d00' : '#2e7d32');
-  return `<div style="font-size:11px;color:${color};font-weight:700;padding:4px 2px 0;">(내부용) 사입가 ${fmtWon(c.costPrice)} · 이익률 ${margin.toFixed(1)}%</div>`;
-}
-
-/* ===================== 사입가 계산기 (팝업) =====================
-   처음엔 카드마다 "사입가" 버튼(모달)이었다가, 별도 탭으로 뺐다가, 탭 하나를 차지할 정도의 기능은
-   아니라는 피드백을 반영해 작은 팝업으로 다시 바꿨다. "🧮 사입가 계산기" 버튼을 누르면 지금 체크된
-   카드들(checkedOrder 순서)에 대해 사입가/이익률을 한번에 입력·비교할 수 있다. */
-function openCostCalcModal(){
-  const overlay = document.getElementById('modalOverlay');
-  overlay.innerHTML = `<div class="modal-box" style="width:560px;">
-    <h3>사입가 계산기</h3>
-    <p>지금 체크된 카드들의 사입가를 입력하면 이익률이 바로 계산됩니다. <b>내부용</b>이며 고객에게 보내는 카드/메일에는 절대 표시되지 않습니다.</p>
-    <div id="costCalcList" style="max-height:420px;overflow:auto;"></div>
-    <div class="modal-actions"><button class="btn" id="modalCancel">닫기</button></div>
-  </div>`;
-  overlay.style.display = 'flex';
-  overlay.querySelector('#modalCancel').onclick = ()=>{ overlay.style.display='none'; overlay.innerHTML=''; };
-  renderCostCalc();
-}
-function renderCostCalc(){
-  const wrap = document.getElementById('costCalcList');
-  if(!wrap) return;
-  const list = checkedOrder.map(id=> cards.find(x=>x.id===id)).filter(Boolean);
-  if(list.length===0){
-    wrap.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#9aa0a6;font-size:13px;line-height:1.8;">먼저 왼쪽 목록에서 계산할 카드를 체크하세요.<br>체크된 카드가 체크한 순서 그대로 여기 나타납니다.</div>';
-    return;
-  }
-  wrap.innerHTML = list.map(c=>`
-    <div class="cc-row" data-id="${c.id}" style="display:flex;align-items:center;gap:14px;padding:14px;border:1px solid var(--gray-line);border-radius:10px;background:#fff;margin-bottom:10px;">
-      <div style="width:52px;height:52px;flex-shrink:0;border-radius:6px;background:#f2f4f7;display:flex;align-items:center;justify-content:center;overflow:hidden;">${c.img?`<img src="${c.img}" style="width:100%;height:100%;object-fit:contain;">`:''}</div>
-      <div style="min-width:0;flex:1;">
-        <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(c.name||'상품명 없음')}</div>
-        <div style="font-size:11.5px;color:var(--text-sub);">형번 ${escapeHtml(c.model||'-')} · 판매가 ${fmtWon(c.salePrice||0)}</div>
-      </div>
-      <div style="width:140px;flex-shrink:0;">
-        <label style="font-size:11px;color:var(--text-sub);">사입가</label>
-        <input type="number" min="0" step="1" class="cc-cost" value="${c.costPrice||0}" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid var(--gray-line);border-radius:6px;font-size:12.5px;">
-      </div>
-      <div class="cc-margin" style="width:190px;flex-shrink:0;text-align:center;font-size:12px;font-weight:700;padding:8px;border-radius:8px;"></div>
-    </div>
-  `).join('');
-  wrap.querySelectorAll('.cc-row').forEach(row=>{
-    const c = cards.find(x=>x.id===row.dataset.id);
-    if(!c) return;
-    const input = row.querySelector('.cc-cost');
-    const marginBox = row.querySelector('.cc-margin');
-    const update = ()=>{
-      const cost = Math.max(0, Number(input.value)||0);
-      const sale = c.salePrice || 0;
-      if(sale<=0){
-        marginBox.style.background = '#f1f1f1'; marginBox.style.color = 'var(--text-sub)';
-        marginBox.textContent = '판매가가 없어 계산 불가';
-        return;
-      }
-      const profit = sale - cost;
-      const margin = (profit/sale)*100;
-      const color = margin<0 ? 'var(--red)' : (margin<20 ? '#8a6d00' : '#2e7d32');
-      marginBox.style.background = margin<0 ? '#fdecea' : (margin<20 ? '#fff8e1' : '#e8f5e9');
-      marginBox.style.color = color;
-      marginBox.textContent = `이익률 ${margin.toFixed(1)}% (이익 ${fmtWon(profit)})`;
-    };
-    input.oninput = ()=>{ c.costPrice = Math.max(0, Number(input.value)||0); persistCards(); update(); };
-    update();
-  });
-}
-document.getElementById('btnCostCalc').onclick = ()=> openCostCalcModal();
+// (2026-08-13: 사입가/이익률 관련 기능 전체 삭제 - marginNoteHtml, openCostCalcModal, renderCostCalc,
+// "🧮 사입가 계산기" 버튼을 모두 없앴다. costPrice 필드 자체는 기존 저장 데이터 호환을 위해 남겨두지만
+// 화면에는 더 이상 노출되지 않는다.)
 function toast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
@@ -1497,10 +1420,9 @@ function expandedBlockHtml(c){
           <div class="listp" contenteditable="true" data-field="listPrice">${fmtWon(c.listPrice)}</div>
           <div class="salep" contenteditable="true" data-field="salePrice">${fmtWon(c.salePrice)}</div>
           ${c.validUntil ? `<div class="row2" style="color:#d97706;margin-top:4px;">가격 유효기간: ${escapeHtml(c.validUntil)}</div>` : ''}
-          <div class="disclaimer" title="실무자 전용 안내 - 고객에게 전달되는 카드/복사 내용에는 포함되지 않습니다"></div>
+          <div class="disclaimer"></div>
         </div>
       </div>
-      ${marginNoteHtml(c)}
       <div class="card-actions">
         <div class="row-btns">
           <button data-act="delete" class="danger" style="flex:1;" title="이 카드 삭제">삭제</button>
@@ -2675,7 +2597,7 @@ async function loadPreparedCards(){
     toast('아직 준비된 회사 대표 카드가 없습니다. (data/prepared_cards.json)');
   }
 }
-document.getElementById('btnLoadPreparedCards').onclick = loadPreparedCards;
+// (2026-08-13: 수동 "회사 대표 카드 불러오기" 버튼 삭제 - showRepGateIfNeeded()의 이름 입력 시 자동 호출로 대체됨)
 
 /* 경제형 대표상품 라인업(외근영업 탭 최상단 고정 22개) - data/pinned_products.json에서 읽어와
    검색/필터와 무관하게 항상 이 자리에 고정 순서대로 보여준다. 기존 "보관함(archive)" 로직과는
@@ -4014,75 +3936,6 @@ function openModelSearchModal(card){
   runSearch(input, resultsEl);
 }
 
-/* ===================== 사입가 / 이익률 실시간 계산 =====================
-   정가(listPrice)는 데이터가 들쭉날쭉해서(예: 판매가가 정가보다 큰 경우도 있음) 계산에 끼워 넣으면
-   할인율 역산 로직이 꼬인다. 그래서 정가는 화면에 참고용으로만 보여주고, 실제 계산은
-   "사입가"와 "판매가" 두 값만 가지고 한다: 이익 = 판매가 - 사입가, 이익률 = 이익 / 판매가 × 100.
-   두 입력칸 중 뭘 바꾸든 즉시 다시 계산해서, 계산식 자체를 그대로 화면에 풀어서 보여준다
-   (그냥 "이익률 20%"만 보여주면 어떻게 나온 숫자인지 헷갈리기 쉬워서). */
-function openCostPriceModal(card){
-  const overlay = document.getElementById('modalOverlay');
-
-  overlay.innerHTML = `<div class="modal-box">
-    <h3>사입가 / 이익률 계산</h3>
-    <p style="font-size:12.5px;color:var(--text-sub);margin-top:2px;">사입가와 판매가를 입력하면 이익률이 실시간으로 계산됩니다. (내부 참고용 — 고객에게 보내는 카드/메일에는 절대 표시되지 않습니다)</p>
-
-    <div style="margin:10px 0 14px;font-size:12px;color:var(--text-sub);">정가(참고용, 계산에는 쓰이지 않음): ${fmtWon(card.listPrice)}</div>
-
-    <label style="font-size:12.5px;color:var(--text-sub);">판매가</label>
-    <input id="cpSalePrice" type="number" min="0" step="1" value="${card.salePrice || 0}" style="width:100%;padding:9px 12px;border:1px solid var(--gray-line);border-radius:6px;font-size:13px;margin:4px 0 14px;">
-
-    <label style="font-size:12.5px;color:var(--text-sub);">사입가(원가)</label>
-    <input id="cpCost" type="number" min="0" step="1" value="${card.costPrice || 0}" style="width:100%;padding:9px 12px;border:1px solid var(--gray-line);border-radius:6px;font-size:13px;margin:4px 0 14px;">
-
-    <div id="cpMarginBox" style="padding:12px;border-radius:8px;"></div>
-
-    <div class="modal-actions" style="margin-top:14px;">
-      <button class="btn" id="modalCancel">취소</button>
-      <button class="btn primary" id="cpSave">저장</button>
-    </div>
-  </div>`;
-  overlay.style.display = 'flex';
-
-  const costEl = overlay.querySelector('#cpCost');
-  const saleEl = overlay.querySelector('#cpSalePrice');
-  const marginBox = overlay.querySelector('#cpMarginBox');
-
-  const renderMargin = ()=>{
-    // 음수/문자 입력 방지 - 가격은 0 이상으로만 취급
-    const cost = Math.max(0, Number(costEl.value) || 0);
-    const sale = Math.max(0, Number(saleEl.value) || 0);
-    if(sale <= 0){
-      marginBox.style.background = '#f1f1f1';
-      marginBox.innerHTML = `<div style="text-align:center;font-size:13px;color:var(--text-sub);">판매가를 입력하면 이익률이 표시됩니다.</div>`;
-      return;
-    }
-    const profit = sale - cost; // 이익 = 판매가 - 사입가
-    const margin = (profit / sale) * 100; // 이익률 = 이익 ÷ 판매가 × 100
-    const color = margin < 0 ? 'var(--red)' : (margin < 20 ? '#8a6d00' : '#2e7d32');
-    marginBox.style.background = margin < 0 ? '#fdecea' : (margin < 20 ? '#fff8e1' : '#e8f5e9');
-    marginBox.innerHTML = `
-      <div style="text-align:center;font-size:17px;font-weight:800;color:${color};">이익률 ${margin.toFixed(1)}%</div>
-      <div style="text-align:center;font-size:11.5px;color:var(--text-sub);margin-top:6px;line-height:1.6;">
-        이익 = 판매가 ${fmtWon(sale)} − 사입가 ${fmtWon(cost)} = ${fmtWon(profit)}<br>
-        이익률 = 이익 ${fmtWon(profit)} ÷ 판매가 ${fmtWon(sale)} × 100 = ${margin.toFixed(1)}%
-      </div>`;
-  };
-
-  costEl.oninput = renderMargin;
-  saleEl.oninput = renderMargin;
-  renderMargin();
-
-  overlay.querySelector('#modalCancel').onclick = ()=>{ overlay.style.display='none'; overlay.innerHTML=''; };
-  overlay.querySelector('#cpSave').onclick = ()=>{
-    card.costPrice = Math.max(0, Number(costEl.value) || 0);
-    card.salePrice = Math.max(0, Number(saleEl.value) || 0);
-    persistCards(); renderGrid();
-    overlay.style.display = 'none'; overlay.innerHTML = '';
-    toast('사입가·판매가·이익률이 저장되었습니다.');
-  };
-}
-
 /* ===================== 메일 템플릿(여러 개) + Outlook 메일 준비 =====================
    mailto:는 일반 텍스트만 지원해서 카드(이미지 포함 HTML)를 직접 넣을 순 없다.
    그래서 1) 제목+본문이 채워진 메일 창을 mailto로 열고, 2) 상품카드가 필요한 템플릿이면 클립보드에
@@ -4125,6 +3978,7 @@ MISUMI {담당자}입니다.
 
 ■ 논의 예정 상품
 {논의상품}
+< 이곳에 카드를 붙여 넣어 주세요. (*붙여넣기 옵션-원본 서식 유지)
 
 ■ 미리 준비해주시면 좋은 사항
 {사전준비사항}
@@ -4244,6 +4098,11 @@ function openTokenModal(tokens, tpl, customerOverride, cardListOverride){
       root.querySelectorAll('[data-token]').forEach(el=>{ values[el.dataset.token] = el.value; });
       return values;
     };
+    // 2026-08-13: "카드를 붙여 넣어 주세요" 안내 줄은 실무자가 놓치지 않도록 미리보기에서만
+    // 빨간색으로 강조한다. 본문 전체를 escapeHtml() 한 다음, 그 안에서 이 줄(역시 escape된 형태)만
+    // 찾아 빨간 <span>으로 다시 감싸는 방식 - 나머지 줄은 그대로 안전하게 escape된 텍스트로 남는다.
+    const CARD_PASTE_HINT = '< 이곳에 카드를 붙여 넣어 주세요. (*붙여넣기 옵션-원본 서식 유지)';
+    const highlightCardPasteHint = (escapedText)=> escapedText.split(escapeHtml(CARD_PASTE_HINT)).join(`<span style="color:var(--red);font-weight:700;">${escapeHtml(CARD_PASTE_HINT)}</span>`);
     const renderPreview = (customValues)=>{
       const values = Object.assign(autoTokenValues(customerOverride, cardListOverride), customValues);
       const subj = fillAllTokens(tpl.subject, values);
@@ -4252,7 +4111,7 @@ function openTokenModal(tokens, tpl, customerOverride, cardListOverride){
         <div style="font-size:11px;color:var(--text-sub);font-weight:700;margin-bottom:4px;">제목</div>
         <div style="font-size:13px;font-weight:700;padding:9px 11px;background:#fff;border:1px solid var(--gray-line);border-radius:6px;margin-bottom:12px;white-space:pre-wrap;word-break:break-word;">${escapeHtml(subj)}</div>
         <div style="font-size:11px;color:var(--text-sub);font-weight:700;margin-bottom:4px;">본문</div>
-        <div style="font-size:12.5px;line-height:1.65;padding:11px;background:#fff;border:1px solid var(--gray-line);border-radius:6px;white-space:pre-wrap;word-break:break-word;">${escapeHtml(body)}</div>`;
+        <div style="font-size:12.5px;line-height:1.65;padding:11px;background:#fff;border:1px solid var(--gray-line);border-radius:6px;white-space:pre-wrap;word-break:break-word;">${highlightCardPasteHint(escapeHtml(body))}</div>`;
     };
     overlay.innerHTML = `<div class="modal-box" style="width:820px;max-width:95vw;">
       <h3>메일 내용 입력</h3>
