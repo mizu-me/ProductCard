@@ -310,8 +310,8 @@
   <div class="arch-grid" id="pinnedGrid" style="margin-bottom:24px;"></div>
 
   <div class="hint" style="background:#f7f8fa;border-left:3px solid #9aa0a6;">
-    <span style="background:#9aa0a6;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:6px;">전체 152개</span>
-    <b>경제형 전체 라인업</b> - 카테고리별 대표 품목의 사진과 상품페이지 링크만 모아둔 목록입니다(가격·형번은 아직 미확인). 카테고리를 눌러 펼쳐보고, 사진 우측 상단 체크로 오른쪽 편집 목록에 담으세요.
+    <span style="background:#9aa0a6;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:6px;">전체 144개</span>
+    <b>경제형 전체 라인업</b> - 카테고리별 대표 품목 목록입니다. 형번·가격·납기가 모두 반영되어 있습니다. 카테고리를 눌러 펼쳐보고, 사진 우측 상단 체크로 오른쪽 편집 목록에 담으세요.
   </div>
   <div id="allCatSections" style="margin-bottom:24px;"></div>
 
@@ -2732,18 +2732,18 @@ async function loadPinnedProducts(){
 }
 loadPinnedProducts();
 
-/* 경제형 전체 라인업 - data/economy_all_categories.json (카테고리별 대표 품목, 사진+상품페이지 링크만 간단히).
-   가격/형번 등은 아직 확인 전이라 카드에는 넣지 않는다(cardHtml/cardPlainLine이 값 없는 줄은 알아서
-   생략하도록 되어있다). [경제형 대표상품 라인업]과 똑같이 썸네일 우측 상단 체크로 오른쪽 편집 목록에
-   바로 담고, "이 카드로 보내기"로 그 자리에서 바로 보낼 수도 있게 한다. */
-let allCatByKey = {};                  // key -> {category, name, code, path}
+/* 경제형 전체 라인업 - data/economy_all_categories.json (카테고리별 대표 품목).
+   형번/가격/납기가 모두 채워져 있어 [경제형 대표상품 라인업]과 동일하게 완전한 카드로 다룬다.
+   썸네일 우측 상단 체크로 오른쪽 편집 목록에 바로 담고, "이 카드로 보내기"로 그 자리에서 바로 보낼 수도 있게 한다. */
+let allCatByKey = {};                  // key -> {category, name, code, path, model, delivery, listPrice, salePrice, _분석코드}
 let allCatSelectedMap = new Map();     // key -> 오른쪽에 추가된 카드id
 function allCatCardObj(it, imgEl){
   const link = `https://kr.misumi-ec.com/vona2/${it.path}`;
   const img = (imgEl && imgEl.tagName==='IMG') ? imgEl.src : '';
   return {
-    id: uid(), category: it.category, name: it.name, model:'', img, link,
-    delivery:'', listPrice:0, salePrice:0, badge:0, checked:true
+    id: uid(), category: it.category, name: it.name, model: it.model||'', img, link,
+    delivery: it.delivery||'', listPrice: it.listPrice||0, salePrice: it.salePrice||0,
+    badge:0, checked:true, _분석코드: it._분석코드||''
   };
 }
 let allCatFlatList = [];   // data/economy_all_categories.json 원본 전체 (검색과 무관하게 항상 보관)
@@ -2789,7 +2789,7 @@ function renderAllCatSections(){
           </div>
           <div class="meta">
             <div class="n">${escapeHtml(it.name)}</div>
-            <div class="d">${escapeHtml(cat)}</div>
+            <div class="d">형번 ${escapeHtml(it.model||'-')}</div>
           </div>
           <div class="btns" style="flex-direction:column;">
             <button data-act="sendOne" style="box-shadow:0 0 0 2px var(--navy) inset;">이 카드로 보내기</button>
