@@ -318,11 +318,11 @@
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
     <button class="btn" id="btnSelectAllCards">전체 선택</button>
     <button class="btn" id="btnSelectNoneCards">전체 해제</button>
-    <button class="btn primary" id="btnBulkArchive">체크된 카드 보관함으로 이동</button>
+    <button class="btn" id="btnBulkArchive">체크된 카드 보관함으로 이동</button>
     <button class="btn" id="btnBulkDelete" style="color:var(--red);border-color:#f2c7cc;">체크된 카드 삭제</button>
     <span id="cardSelCount" style="font-size:12.5px;color:var(--text-sub);"></span>
     <div style="flex:1;"></div>
-    <button class="btn primary" id="btnPrepMail">Outlook 메일 준비</button>
+    <button class="btn primary" id="btnPrepMail" style="padding:12px 26px;font-size:15px;box-shadow:0 2px 6px rgba(22,58,122,.35);">Outlook 메일 준비</button>
   </div>
   <div class="edit-split" style="display:flex;gap:16px;align-items:flex-start;">
     <div class="card-list-pane" style="border:1px solid var(--gray-line);border-radius:10px;background:#fff;overflow:hidden;">
@@ -720,11 +720,9 @@ function defaultCard(){
 // 옛날 데이터(localStorage)에는 checked 필드가 없을 수 있으니, false로 명시된 것만 제외하고 나머지는 포함으로 본다.
 function getCardsForSend(){ return cards.filter(c=>c.checked!==false); }
 
-let cards = JSON.parse(localStorage.getItem(LS_CARDS) || 'null') || [
-  Object.assign(defaultCard(), { name:'리니어모터 액추에이터', model:'LEFS16A-100' }),
-  Object.assign(defaultCard(), { name:'볼나사 스테이지', model:'KR2001A-200', listPrice:386000, salePrice:328100 }),
-  Object.assign(defaultCard(), { name:'직동 가이드', model:'SSEBS15-300', listPrice:386000, salePrice:328100 }),
-];
+// (2026-08-13: 처음 이름을 입력하고 들어왔을 때 보이던 예시 카드 3개를 없앴다 - 이제 빈 배열로
+// 시작해서 "아직 카드가 없습니다" 안내가 바로 보인다.)
+let cards = JSON.parse(localStorage.getItem(LS_CARDS) || 'null') || [];
 
 // localStorage는 용량 제한(브라우저마다 대략 5~10MB)이 있어서, 사진(base64)이 많이 쌓이면
 // setItem이 QuotaExceededError를 던질 수 있다. 이걸 못 잡으면 그 뒤에 있는 코드(예: 화면 다시 그리기)가
@@ -4001,7 +3999,8 @@ MISUMI {담당자}입니다.
 
 ■ 논의 예정 상품
 {논의상품}
-< 이곳에 카드를 붙여 넣어 주세요. (*붙여넣기 옵션-원본 서식 유지)
+이곳에 카드를 붙여 넣어 주세요. Ctrl+V를 누르면 붙여 넣을 수 있습니다.
+(*붙여넣기 옵션 - 원본 서식 유지)
 
 ■ 미리 준비해주시면 좋은 사항
 {사전준비사항}
@@ -4042,10 +4041,16 @@ persistMailTemplates();
 // 이미 이 브라우저에 저장돼 있던 템플릿(localStorage)에는 이 줄이 없어서 실제 메일/미리보기에
 // 반영되지 않는 문제가 있었다. {논의상품} 토큰이 있는 템플릿에 안내 줄이 없으면 한 번만 끼워 넣는다.
 (function migrateCardPasteHintIntoTemplates(){
-  const HINT = '< 이곳에 카드를 붙여 넣어 주세요. (*붙여넣기 옵션-원본 서식 유지)';
+  const OLD_HINT_V1 = '< 이곳에 카드를 붙여 넣어 주세요. (*붙여넣기 옵션-원본 서식 유지)';
+  const HINT = '이곳에 카드를 붙여 넣어 주세요. Ctrl+V를 누르면 붙여 넣을 수 있습니다.\n(*붙여넣기 옵션 - 원본 서식 유지)';
   let changed = false;
   mailTemplates.forEach(t=>{
-    if(typeof t.body === 'string' && t.body.includes('{논의상품}') && !t.body.includes(HINT)){
+    if(typeof t.body !== 'string') return;
+    if(t.body.includes(OLD_HINT_V1)){
+      // 지난 버전(2026-08-13 1차)에서 이미 끼워 넣었던 문구를 새 문구로 교체한다.
+      t.body = t.body.replace(OLD_HINT_V1, HINT);
+      changed = true;
+    }else if(t.body.includes('{논의상품}') && !t.body.includes(HINT)){
       t.body = t.body.replace('{논의상품}', '{논의상품}\n' + HINT);
       changed = true;
     }
@@ -4136,11 +4141,13 @@ function openTokenModal(tokens, tpl, customerOverride, cardListOverride){
       root.querySelectorAll('[data-token]').forEach(el=>{ values[el.dataset.token] = el.value; });
       return values;
     };
-    // 2026-08-13: "카드를 붙여 넣어 주세요" 안내 줄은 실무자가 놓치지 않도록 미리보기에서만
-    // 빨간색으로 강조한다. 본문 전체를 escapeHtml() 한 다음, 그 안에서 이 줄(역시 escape된 형태)만
-    // 찾아 빨간 <span>으로 다시 감싸는 방식 - 나머지 줄은 그대로 안전하게 escape된 텍스트로 남는다.
-    const CARD_PASTE_HINT = '< 이곳에 카드를 붙여 넣어 주세요. (*붙여넣기 옵션-원본 서식 유지)';
-    const highlightCardPasteHint = (escapedText)=> escapedText.split(escapeHtml(CARD_PASTE_HINT)).join(`<span style="color:var(--red);font-weight:700;">${escapeHtml(CARD_PASTE_HINT)}</span>`);
+    // 2026-08-13: "카드를 붙여 넣어 주세요" 안내(2줄)는 실무자가 놓치지 않도록 미리보기에서만
+    // 빨간 테두리 박스로 감싸서 보여준다. 본문 전체를 escapeHtml() 한 다음, 그 안에서 이 두 줄
+    // (역시 escape된 형태)만 찾아 박스 <div>로 다시 감싸는 방식 - 나머지 줄은 그대로 안전하게
+    // escape된 일반 텍스트로 남는다. 실제 Outlook 메일 본문(mailto, 일반 텍스트)에는 이 박스 스타일이
+    // 적용되지 않고 문구만 그대로 들어간다 - mailto는 서식을 지원하지 않기 때문에 기술적으로 불가능하다.
+    const CARD_PASTE_HINT = '이곳에 카드를 붙여 넣어 주세요. Ctrl+V를 누르면 붙여 넣을 수 있습니다.\n(*붙여넣기 옵션 - 원본 서식 유지)';
+    const highlightCardPasteHint = (escapedText)=> escapedText.split(escapeHtml(CARD_PASTE_HINT)).join(`<div style="border:2px solid var(--red);border-radius:6px;padding:8px 10px;color:var(--red);font-weight:700;margin:4px 0;display:inline-block;">${escapeHtml(CARD_PASTE_HINT)}</div>`);
     const renderPreview = (customValues)=>{
       const values = Object.assign(autoTokenValues(customerOverride, cardListOverride), customValues);
       const subj = fillAllTokens(tpl.subject, values);
