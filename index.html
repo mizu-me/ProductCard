@@ -408,23 +408,23 @@
 
 <div class="panel" id="indoorPanel">
   <div class="hint">
-    사무실(내근) 업무용 탭입니다. 캠페인관리 매크로 엑셀(<b>미구매고객_캠페인관리_V1.xlsm</b>) 파일을 그대로 올리면
-    <b>고객사명·형번·상품명·CAD/QT 구분·경과일·구매상태</b>를 뽑아서 오늘 처리할 목록으로 보여주고,
-    같은 파일 안의 <b>메일주소모음 시트</b>에서 <b>고객번호·담당내근·이메일주소·발송가부</b>도 찾아 자동으로 붙여줍니다.
-    업로드한 파일은 이 브라우저 안에서만 읽고 표시할 뿐, 깃허브나 다른 어떤 서버에도 올라가지 않습니다 (고객 정보가 포함된 엑셀이라도 안전합니다).<br>
-    나중에 엑셀을 갱신했으면 같은 버튼으로 최신 파일을 다시 올리기만 하면 목록 전체가 새로 교체됩니다 - 별도 설정은 필요 없습니다.
+    사무실(내근) 업무용 탭입니다. 이제 매크로 엑셀 없이도 됩니다 - SQL로 뽑은 <b>미구매고객 모니터링 결과 파일(.xlsx/.csv)</b>을 그대로 올리면
+    <b>고객사명·형번·상품명·CAD/QT 구분·팀구분·경과일·구매상태·담당자</b>가 파일 하나에서 바로 표로 뜹니다 (담당자도 이 파일에서 바로 채워집니다, 별도 시트 불필요).<br>
+    이메일 주소·발송가부까지 채우려면 예전처럼 <b>메일주소모음 시트(파일)</b>를 추가로 골라서 함께 올리면 자동으로 합쳐집니다 - 이 부분은 그대로입니다.
+    업로드한 파일은 이 브라우저 안에서만 읽고 표시할 뿐, 깃허브나 다른 어떤 서버에도 올라가지 않습니다 (고객 정보가 포함되어 있어도 안전합니다).<br>
+    최신 상황을 반영하려면 <b>SQL을 다시 돌려서 파일을 새로 저장 → 같은 버튼으로 다시 올리기만 하면</b> 목록 전체가 새로 교체됩니다 (주 1회 정도 권장, 자동 갱신은 아닙니다) - 별도 설정은 필요 없습니다.
   </div>
   <div class="share-box">
-    <h3>캠페인관리 엑셀 업로드</h3>
+    <h3>모니터링 결과 파일 업로드</h3>
     <div class="share-actions">
-      <button class="btn" id="btnPickIndoorExcel">엑셀 파일 선택 (.xlsm/.xlsx)</button>
-      <input type="file" id="indoorExcelFile" accept=".xlsm,.xlsx,.xls">
+      <button class="btn" id="btnPickIndoorExcel">결과 파일 선택 (.xlsx/.csv/.xlsm)</button>
+      <input type="file" id="indoorExcelFile" accept=".xlsm,.xlsx,.xls,.csv">
       <span id="indoorExcelStatus" style="font-size:12px;color:var(--text-sub);align-self:center;"></span>
     </div>
     <div id="indoorSheetPickWrap" style="display:none;margin-top:10px;gap:14px;flex-wrap:wrap;align-items:center;">
       <span style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-sub);">작업목록 시트 <select id="indoorItemSheetSelect" style="padding:7px 8px;border-radius:8px;border:1px solid var(--gray-line);font-size:12.5px;"></select></span>
-      <span style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-sub);">메일주소 시트 <select id="indoorMailSheetSelect" style="padding:7px 8px;border-radius:8px;border:1px solid var(--gray-line);font-size:12.5px;"></select></span>
-      <span style="font-size:11.5px;color:var(--text-sub);">※ 자동으로 골랐습니다. 두 시트가 화면에 함께 합쳐져 표시되니, 잘못 골랐을 때만 바꿔주세요.</span>
+      <span style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-sub);">메일주소 시트 (선택) <select id="indoorMailSheetSelect" style="padding:7px 8px;border-radius:8px;border:1px solid var(--gray-line);font-size:12.5px;"></select></span>
+      <span style="font-size:11.5px;color:var(--text-sub);">※ 자동으로 골랐습니다. 이메일이 필요할 때만 메일주소 시트를 고르세요 - 안 골라도 담당자는 표시됩니다.</span>
     </div>
   </div>
   <div style="margin:14px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -440,6 +440,9 @@
     </select>
     <select id="indoorKindFilter" style="padding:9px 10px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
       <option value="">구분 (전체)</option>
+    </select>
+    <select id="indoorTeamFilter" style="padding:9px 10px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
+      <option value="">팀구분 (전체)</option>
     </select>
     <select id="indoorSendFilter" style="padding:9px 10px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
       <option value="">발송가부 (전체)</option>
@@ -3057,7 +3060,10 @@ function parseIndoorSheet(wb, sheetName){
     kind: idxOf('구분','유형','CAD/QT','CADQT','요청구분','문의구분'),
     status: idxOf('구매상태','구매여부','진행상태','상태'),
     days: idxOf('경과일수','경과일','D-DAY','D-day'),
-    date: idxOf('최초등록일','등록일','접수일','요청일','문의일','일자','날짜')
+    date: idxOf('최초등록일','등록일','접수일','요청일','문의일','일자','날짜'),
+    // SQL 쿼리 결과 파일에는 담당자·팀구분이 이 시트 안에 바로 들어있어서, 메일주소 시트 없이도 채울 수 있다.
+    manager: idxOf('담당자','담당내근','내근담당'),
+    team: idxOf('팀구분')
   };
   if(col.customer < 0 && col.model < 0){ return { ok:false }; }
   const dataRows = rows.slice(headerIdx+1).filter(r => r.some(c=>String(c).trim()!==''));
@@ -3082,7 +3088,9 @@ function parseIndoorSheet(wb, sheetName){
       productName: col.productName>=0 ? String(r[col.productName]).trim() : '',
       kind: col.kind>=0 ? String(r[col.kind]).trim() : '',
       status: col.status>=0 ? String(r[col.status]).trim() : '',
-      days
+      days,
+      manager: col.manager>=0 ? String(r[col.manager]).trim() : '',
+      team: col.team>=0 ? String(r[col.team]).trim() : ''
     };
   }).filter(it=> it.customer || it.model);
   return { ok:true, items };
@@ -3148,7 +3156,9 @@ function refreshIndoorMerged(){
       // 같은 키를 가진 다른 줄까지 같이 카드가 만들어지는 문제(2개 선택 → 4개 카드 생성)가 있었다.
       rowId: 'r' + i,
       customerNo: it.customerNo || info.customerNo || '',
-      manager: info.manager || '',
+      // 담당자: 메일주소 시트가 있으면 그쪽을 우선(발송가부와 세트로 관리되는 값이라 더 신뢰), 없으면
+      // 작업목록 시트(SQL 결과 파일) 자체에 담당자 열이 있으면 그 값을 그대로 사용한다.
+      manager: info.manager || it.manager || '',
       email: info.email || '',
       sendYn: info.sendYn || ''
     });
@@ -3159,10 +3169,14 @@ function refreshIndoorMerged(){
   renderIndoorCatalogStatus();
   populateIndoorManagerFilter();
   populateIndoorKindFilter();
+  populateIndoorTeamFilter();
   renderIndoorGrid();
+  const managerFromFileCount = items.filter(it=> !it.email && it.manager).length;
   const matchNote = (matchedByNo || matchedByName)
     ? ` (고객번호로 ${matchedByNo}건, 고객사명으로 ${matchedByName}건 매칭)`
-    : ' (메일주소 시트를 찾지 못했거나 매칭되지 않아 담당내근/이메일은 비어있습니다)';
+    : (managerFromFileCount>0
+        ? ` (메일주소 시트 없이 파일 자체 담당자로 ${managerFromFileCount}건 채움 - 이메일이 필요하면 메일주소 시트를 추가로 골라주세요)`
+        : ' (메일주소 시트를 찾지 못했거나 매칭되지 않아 담당내근/이메일은 비어있습니다)');
   toast(`내근영업 목록 ${items.length}건을 불러왔습니다.` + matchNote);
 }
 
@@ -3183,6 +3197,15 @@ function populateIndoorKindFilter(){
   const kinds = [...new Set(indoorCatalog.items.map(it=>it.kind).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
   sel.innerHTML = `<option value="">구분 (전체)</option>` + kinds.map(k=>`<option value="${escapeHtml(k)}">${escapeHtml(k)}</option>`).join('');
   sel.value = kinds.includes(prev) ? prev : '';
+}
+// TSC1~4처럼 여러 팀을 한 파일에 같이 올렸을 때 팀 단위로 걸러볼 수 있도록 하는 필터.
+function populateIndoorTeamFilter(){
+  const sel = document.getElementById('indoorTeamFilter');
+  if(!sel) return;
+  const prev = sel.value;
+  const teams = [...new Set(indoorCatalog.items.map(it=>it.team).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
+  sel.innerHTML = `<option value="">팀구분 (전체)</option>` + teams.map(t=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+  sel.value = teams.includes(prev) ? prev : '';
 }
 
 document.getElementById('btnPickIndoorExcel').onclick = ()=> document.getElementById('indoorExcelFile').click();
@@ -3237,6 +3260,7 @@ function getVisibleIndoorItems(){
   const maxDays = maxRaw !== '' && !isNaN(Number(maxRaw)) ? Number(maxRaw) : null;   // 이 값 "미만"
   const managerFilter = document.getElementById('indoorManagerFilter').value;
   const kindFilter = document.getElementById('indoorKindFilter').value;
+  const teamFilter = document.getElementById('indoorTeamFilter').value;
   const sendFilter = document.getElementById('indoorSendFilter').value;
   let list = indoorCatalog.items.filter(it=>{
     if(!showCompleted && it.status && it.status.includes('완료')) return false;
@@ -3244,6 +3268,7 @@ function getVisibleIndoorItems(){
     if(maxDays !== null && (it.days === null || it.days >= maxDays)) return false;
     if(managerFilter && it.manager !== managerFilter) return false;
     if(kindFilter && it.kind !== kindFilter) return false;
+    if(teamFilter && it.team !== teamFilter) return false;
     if(sendFilter && indoorSendClass(it.sendYn) !== sendFilter) return false;
     if(q && !(it.customer.toLowerCase().includes(q) || it.model.toLowerCase().includes(q) || (it.productName||'').toLowerCase().includes(q))) return false;
     return true;
@@ -3282,7 +3307,7 @@ function renderIndoorGrid(){
   if(visible.length===0){ wrap.innerHTML = '<div style="color:#9aa0a6;font-size:13px;">일치하는 항목이 없습니다.</div>'; return; }
   wrap.innerHTML = `<table class="log-table indoor-table"><thead><tr>
       <th><input type="checkbox" id="indoorSelectAll"></th>
-      <th>고객사명</th><th>형번</th><th>상품명</th><th>구분</th><th>경과일</th><th>구매상태</th><th>담당내근</th><th>이메일주소</th><th>카드생성</th>
+      <th>고객사명</th><th>형번</th><th>상품명</th><th>구분</th><th>팀구분</th><th>경과일</th><th>구매상태</th><th>담당내근</th><th>이메일주소</th><th>카드생성</th>
     </tr></thead><tbody>
     ${visible.slice(0,300).map(it=>{
       const done = it.status && it.status.includes('완료');
@@ -3295,6 +3320,7 @@ function renderIndoorGrid(){
         <td class="model">${escapeHtml(it.model || '-')}</td>
         <td class="ellip" title="${escapeHtml(it.productName || '')}">${escapeHtml(it.productName || '-')}</td>
         <td>${escapeHtml(it.kind || '-')}</td>
+        <td>${escapeHtml(it.team || '-')}</td>
         <td style="color:${indoorDaysColor(it.days)};font-weight:700;">${it.days===null ? '-' : it.days + '일'}</td>
         <td>${escapeHtml(it.status || '-')}</td>
         <td>${escapeHtml(it.manager || '-')}</td>
@@ -3344,10 +3370,12 @@ document.getElementById('indoorMaxDays').oninput = renderIndoorGrid;
 document.getElementById('indoorShowCompleted').onchange = renderIndoorGrid;
 document.getElementById('indoorManagerFilter').onchange = renderIndoorGrid;
 document.getElementById('indoorKindFilter').onchange = renderIndoorGrid;
+document.getElementById('indoorTeamFilter').onchange = renderIndoorGrid;
 document.getElementById('indoorSendFilter').onchange = renderIndoorGrid;
 renderIndoorCatalogStatus();
 populateIndoorManagerFilter();
 populateIndoorKindFilter();
+populateIndoorTeamFilter();
 
 document.getElementById('btnIndoorResetAllDone').onclick = ()=>{
   if(indoorDoneKeys.size===0){ toast('초기화할 "카드생성" 표시가 없습니다.'); return; }
