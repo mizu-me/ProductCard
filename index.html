@@ -444,6 +444,11 @@
     <select id="indoorTeamFilter" style="padding:9px 10px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
       <option value="">팀구분 (전체)</option>
     </select>
+    <select id="indoorNewFilter" style="padding:9px 10px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
+      <option value="">신규구분 (전체)</option>
+      <option value="Y">신규만</option>
+      <option value="N">기존만</option>
+    </select>
     <select id="indoorSendFilter" style="padding:9px 10px;border-radius:8px;border:1px solid var(--gray-line);font-size:13px;">
       <option value="">발송가부 (전체)</option>
       <option value="ok">발송가능만</option>
@@ -3061,9 +3066,10 @@ function parseIndoorSheet(wb, sheetName){
     status: idxOf('구매상태','구매여부','진행상태','상태'),
     days: idxOf('경과일수','경과일','D-DAY','D-day'),
     date: idxOf('최초등록일','등록일','접수일','요청일','문의일','일자','날짜'),
-    // SQL 쿼리 결과 파일에는 담당자·팀구분이 이 시트 안에 바로 들어있어서, 메일주소 시트 없이도 채울 수 있다.
+    // SQL 쿼리 결과 파일에는 담당자·팀구분·신규 여부가 이 시트 안에 바로 들어있어서, 메일주소 시트 없이도 채울 수 있다.
     manager: idxOf('담당자','담당내근','내근담당'),
-    team: idxOf('팀구분')
+    team: idxOf('팀구분'),
+    isNew: idxOf('신규')
   };
   if(col.customer < 0 && col.model < 0){ return { ok:false }; }
   const dataRows = rows.slice(headerIdx+1).filter(r => r.some(c=>String(c).trim()!==''));
@@ -3090,7 +3096,8 @@ function parseIndoorSheet(wb, sheetName){
       status: col.status>=0 ? String(r[col.status]).trim() : '',
       days,
       manager: col.manager>=0 ? String(r[col.manager]).trim() : '',
-      team: col.team>=0 ? String(r[col.team]).trim() : ''
+      team: col.team>=0 ? String(r[col.team]).trim() : '',
+      isNew: col.isNew>=0 ? String(r[col.isNew]).trim() : ''
     };
   }).filter(it=> it.customer || it.model);
   return { ok:true, items };
@@ -3261,6 +3268,7 @@ function getVisibleIndoorItems(){
   const managerFilter = document.getElementById('indoorManagerFilter').value;
   const kindFilter = document.getElementById('indoorKindFilter').value;
   const teamFilter = document.getElementById('indoorTeamFilter').value;
+  const newFilter = document.getElementById('indoorNewFilter').value;
   const sendFilter = document.getElementById('indoorSendFilter').value;
   let list = indoorCatalog.items.filter(it=>{
     if(!showCompleted && it.status && it.status.includes('완료')) return false;
@@ -3269,6 +3277,7 @@ function getVisibleIndoorItems(){
     if(managerFilter && it.manager !== managerFilter) return false;
     if(kindFilter && it.kind !== kindFilter) return false;
     if(teamFilter && it.team !== teamFilter) return false;
+    if(newFilter && it.isNew !== newFilter) return false;
     if(sendFilter && indoorSendClass(it.sendYn) !== sendFilter) return false;
     if(q && !(it.customer.toLowerCase().includes(q) || it.model.toLowerCase().includes(q) || (it.productName||'').toLowerCase().includes(q))) return false;
     return true;
@@ -3307,7 +3316,7 @@ function renderIndoorGrid(){
   if(visible.length===0){ wrap.innerHTML = '<div style="color:#9aa0a6;font-size:13px;">일치하는 항목이 없습니다.</div>'; return; }
   wrap.innerHTML = `<table class="log-table indoor-table"><thead><tr>
       <th><input type="checkbox" id="indoorSelectAll"></th>
-      <th>고객사명</th><th>형번</th><th>상품명</th><th>구분</th><th>팀구분</th><th>경과일</th><th>구매상태</th><th>담당내근</th><th>이메일주소</th><th>카드생성</th>
+      <th>고객사명</th><th>형번</th><th>상품명</th><th>구분</th><th>팀구분</th><th>신규</th><th>경과일</th><th>구매상태</th><th>담당내근</th><th>이메일주소</th><th>카드생성</th>
     </tr></thead><tbody>
     ${visible.slice(0,300).map(it=>{
       const done = it.status && it.status.includes('완료');
@@ -3321,6 +3330,7 @@ function renderIndoorGrid(){
         <td class="ellip" title="${escapeHtml(it.productName || '')}">${escapeHtml(it.productName || '-')}</td>
         <td>${escapeHtml(it.kind || '-')}</td>
         <td>${escapeHtml(it.team || '-')}</td>
+        <td>${it.isNew==='Y' ? `<span style="color:var(--red);font-weight:700;">신규</span>` : (it.isNew==='N' ? '-' : '')}</td>
         <td style="color:${indoorDaysColor(it.days)};font-weight:700;">${it.days===null ? '-' : it.days + '일'}</td>
         <td>${escapeHtml(it.status || '-')}</td>
         <td>${escapeHtml(it.manager || '-')}</td>
@@ -3371,6 +3381,7 @@ document.getElementById('indoorShowCompleted').onchange = renderIndoorGrid;
 document.getElementById('indoorManagerFilter').onchange = renderIndoorGrid;
 document.getElementById('indoorKindFilter').onchange = renderIndoorGrid;
 document.getElementById('indoorTeamFilter').onchange = renderIndoorGrid;
+document.getElementById('indoorNewFilter').onchange = renderIndoorGrid;
 document.getElementById('indoorSendFilter').onchange = renderIndoorGrid;
 renderIndoorCatalogStatus();
 populateIndoorManagerFilter();
