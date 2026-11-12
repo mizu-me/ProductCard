@@ -5095,6 +5095,103 @@ populateTaDatalist();
 /* ===================== 초기화 ===================== */
 renderGrid();
 showRepGateIfNeeded();
+
+/* ===================== 사용 기록 (2026-11-12 추가) =====================
+   차병선 팀장 요청: 영업 허브 사용 현황 집계용. 화면 동작 시 /api/log 로 기록을 보낸다.
+   - 기존 로직은 건드리지 않고, 맨 끝에서 기존 함수 "뒤에" 기록 호출만 덧붙인다.
+   - 기록 내용은 동작 이름 + 상품명/형번/검색어/탭 이름뿐. 고객사명·담당자·메일주소는 보내지 않는다.
+   - /api/log 가 없는 곳(GitHub Pages, 백업 HTML 파일)에서는 조용히 실패하고 화면은 그대로 동작한다. */
+function logUsage(action, detail) {
+  try {
+    const body = JSON.stringify({
+      action,
+      page: location.pathname + location.hash,
+      detail: detail ? String(detail) : "",
+    });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon("/api/log", new Blob([body], { type: "application/json" }));
+    } else {
+      fetch("/api/log", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => {});
+    }
+  } catch (e) { /* 무시 */ }
+}
+(function wireUsageLog(){
+  const safe = fn => { try{ fn(); }catch(e){ /* 기록 실패는 화면 동작에 영향 없음 */ } };
+  const cardNames = list => (list||[]).map(c=> (c && (c.model || c.name)) || '').filter(Boolean).slice(0,10).join(', ');
+
+  // 1) 탭(메뉴) 이동
+  safe(()=>{
+    const orig = showSub;
+    showSub = function(){
+      const r = orig.apply(this, arguments);
+      safe(()=>{
+        const items = currentTop==='field' ? FIELD_SUBNAV : INDOOR_SUBNAV;
+        const it = items.find(x=>!x.sep && x.key===currentSubKey);
+        logUsage('tab', (currentTop==='field' ? '외근영업' : '내근영업') + ' > ' + (it ? it.label : currentSubKey));
+      });
+      return r;
+    };
+  });
+
+  // 2) 상품을 골라 카드로 담기 (대표상품·전체 라인업·라이브러리·엑셀 카탈로그 공통)
+  safe(()=>{
+    const orig = toggleCatalogItem;
+    toggleCatalogItem = function(selectedMap, sourceKey){
+      const had = selectedMap && selectedMap.has(sourceKey);
+      const r = orig.apply(this, arguments);
+      safe(()=>{
+        if(had) return; // 선택 해제는 기록하지 않음
+        const id = selectedMap.get(sourceKey);
+        const c = cards.find(x=>x.id===id);
+        logUsage('view_card', c ? (c.model || c.name) : '');
+      });
+      return r;
+    };
+  });
+
+  // 3) 카드 복사 / 메일 준비 (발송이력에 남는 시점) - 고객사명은 보내지 않고 형번만
+  safe(()=>{
+    const orig = logSend;
+    logSend = function(customerOverride, tplName, cardListOverride){
+      const r = orig.apply(this, arguments);
+      safe(()=> logUsage('share', cardNames(cardListOverride || getCardsForSend())));
+      return r;
+    };
+  });
+  safe(()=>{
+    const orig = copyArchCard;
+    copyArchCard = function(c){
+      safe(()=> logUsage('share', c ? (c.model || c.name) : ''));
+      return orig.apply(this, arguments);
+    };
+  });
+
+  // 4) 검색 - 입력이 1.5초 멈췄을 때 한 번만, 같은 검색어는 다시 보내지 않음 (상품 검색창만)
+  let searchTimer = null, lastSearch = '';
+  const logSearchLater = q => {
+    q = String(q || '').trim();
+    if(q.length < 2) return;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(()=>{ if(q !== lastSearch){ lastSearch = q; logUsage('search', q); } }, 1500);
+  };
+  ['globalProductSearch','fieldSearch','libSearch','gallerySearch'].forEach(id=> safe(()=>{
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('input', e=> logSearchLater(e.target.value));
+  }));
+  safe(()=>{
+    const orig = searchModels;
+    searchModels = function(query){ logSearchLater(query); return orig.apply(this, arguments); };
+  });
+
+  // 5) 분류(대구분) 칩 선택
+  document.addEventListener('click', e=> safe(()=>{
+    const chip = e.target && e.target.closest ? e.target.closest('.lib-chip') : null;
+    if(chip) logUsage('filter', chip.dataset.val || '전체');
+  }));
+
+  // 6) 첫 화면 열기 (1회)
+  logUsage('open');
+})();
 </script>
 </body>
 </html>
